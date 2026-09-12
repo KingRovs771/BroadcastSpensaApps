@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { MobileBottomBar } from "@/components/layout/MobileBottomBar";
+import { MobileMenuDrawer } from "@/components/layout/MobileMenuDrawer";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { SplashScreen } from "@/components/shared/SplashScreen";
 import { useSession } from "@/components/shared/SessionContext";
@@ -79,7 +80,8 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        {/* Mobile Bottom Bar */}
+        {/* Mobile Navigation Drawer & Bottom Bar */}
+        <MobileMenuDrawer />
         <MobileBottomBar />
       </div>
     </>

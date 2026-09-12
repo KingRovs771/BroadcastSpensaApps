@@ -11,11 +11,19 @@ import {
   LogOut,
   Sparkles,
   User,
+  Menu,
 } from "lucide-react";
 
 export function Topbar() {
   const router = useRouter();
-  const { currentUser, isOffline, setIsOffline, logout } = useSession();
+  const {
+    currentUser,
+    isOffline,
+    setIsOffline,
+    isMobileMenuOpen,
+    setIsMobileMenuOpen,
+    logout,
+  } = useSession();
   const semesterInfo = getAcademicSemester(new Date());
 
   const handleLogout = async () => {
@@ -25,8 +33,16 @@ export function Topbar() {
 
   return (
     <header className="h-16 bg-surface-1 border-b border-studio-border-subtle px-4 lg:px-6 flex items-center justify-between gap-4 sticky top-0 z-30">
-      {/* Left: Semester + branding pill */}
-      <div className="flex items-center gap-3">
+      {/* Left: Mobile hamburger menu + Semester branding */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Buka Menu Navigasi"
+          className="lg:hidden p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white border border-studio-border-subtle transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+        >
+          <Menu className="w-5 h-5 text-spectrum-cyan" />
+        </button>
+
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-studio-border-subtle text-xs">
           <Calendar className="w-3.5 h-3.5 text-spectrum-cyan" />
           <span className="font-semibold text-white">{semesterInfo.label}</span>

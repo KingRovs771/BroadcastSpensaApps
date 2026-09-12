@@ -36,6 +36,8 @@ interface SessionContextType {
   logout: () => void;
   isOffline: boolean;
   setIsOffline: (offline: boolean) => void;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   refreshData: () => Promise<void>;
 
   // Data collections (live from Supabase)
@@ -87,6 +89,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Data collections — empty by default for clean production use
   const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>([]);
@@ -371,6 +374,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         logout,
         isOffline,
         setIsOffline,
+        isMobileMenuOpen,
+        setIsMobileMenuOpen,
         refreshData: loadAllDatabaseData,
         anggotaList,
         setAnggotaList,
