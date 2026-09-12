@@ -16,7 +16,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { createClient } from "@/lib/supabase/client";
+
 export default function AnggotaPage() {
+  const supabase = createClient();
   const { currentUser, anggotaList, setAnggotaList, logAction } = useSession();
 
   const [activeTab, setActiveTab] = useState<"tetap" | "ekskul">("tetap");
@@ -43,11 +46,12 @@ export default function AnggotaPage() {
       a.kelas.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const tempId = `ang-${Date.now()}`;
     const newAnggota: AnggotaRecord = {
-      id: `ang-${Date.now()}`,
+      id: tempId,
       tipe: activeTab,
       nama_lengkap: namaLengkap,
       nis,
@@ -67,6 +71,33 @@ export default function AnggotaPage() {
       newAnggota.id,
       `Mendaftarkan ${activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}: ${namaLengkap} (${kelas})`
     );
+
+    try {
+      const { data } = await supabase
+        .from("anggota")
+        .insert({
+          tipe: activeTab,
+          nama_lengkap: namaLengkap,
+          nis,
+          nisn: nisn || null,
+          kelas,
+          jabatan,
+          divisi: activeTab === "tetap" ? divisi : null,
+          tahun_ajaran: "2026/2027",
+          status: "aktif",
+          no_hp: noHp || null,
+        })
+        .select()
+        .single();
+
+      if (data) {
+        setAnggotaList((prev) =>
+          prev.map((a) => (a.id === tempId ? (data as AnggotaRecord) : a))
+        );
+      }
+    } catch (err) {
+      console.error("Error inserting anggota to Supabase:", err);
+    }
 
     setNamaLengkap("");
     setNis("");
