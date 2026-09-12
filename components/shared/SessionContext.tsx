@@ -1,9 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   UserProfile,
-  MOCK_USERS,
+  UserRole,
+  DivisiName,
   AnggotaRecord,
   INITIAL_ANGGOTA,
   KasSettings,
@@ -27,17 +29,28 @@ import {
   AuditLogItem,
 } from "@/lib/mock/store";
 
+// ─── Fallback guest profile ────────────────────────────────────────────────────
+const GUEST_PROFILE: UserProfile = {
+  id: "guest",
+  nama: "Tamu",
+  email: "",
+  role: "anggota",
+};
+
+// ─── Context type ─────────────────────────────────────────────────────────────
 interface SessionContextType {
   currentUser: UserProfile;
-  availableUsers: UserProfile[];
-  switchUser: (userId: string) => void;
+  isLoggedIn: boolean;
+  isSessionLoading: boolean; // true while restoring session from Supabase/storage
+  loginWithProfile: (profile: UserProfile) => void;
+  logout: () => void;
   isOffline: boolean;
   setIsOffline: (offline: boolean) => void;
 
   // Data collections
   anggotaList: AnggotaRecord[];
   setAnggotaList: React.Dispatch<React.SetStateAction<AnggotaRecord[]>>;
-  
+
   produksiList: ProduksiVideo[];
   setProduksiList: React.Dispatch<React.SetStateAction<ProduksiVideo[]>>;
 
@@ -71,10 +84,14 @@ interface SessionContextType {
 const SessionContext = createContext<SessionContextType | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  // Default to Pembina (usr-pembina) for primary monitoring experience
-  const [currentUser, setCurrentUser] = useState<UserProfile>(MOCK_USERS[1]);
+  const supabase = createClient();
+
+  const [currentUser, setCurrentUser] = useState<UserProfile>(GUEST_PROFILE);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
   const [isOffline, setIsOffline] = useState<boolean>(false);
 
+  // Data collections (empty by default — filled from Supabase after auth)
   const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>(INITIAL_ANGGOTA);
   const [produksiList, setProduksiList] = useState<ProduksiVideo[]>(INITIAL_PRODUKSI);
   const [kasSettings, setKasSettings] = useState<KasSettings>(INITIAL_KAS_SETTINGS);
@@ -86,37 +103,88 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [notulenList, setNotulenList] = useState<NotulenItem[]>(INITIAL_NOTULEN);
   const [keuanganPembinaList, setKeuanganPembinaList] = useState<KeuanganPembinaItem[]>(INITIAL_KEUANGAN_PEMBINA);
 
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([
-    {
-      id: "log-1",
-      actor_id: "usr-pembina",
-      actor_name: "Bpk. Haryanto, S.Pd",
-      actor_role: "pembina",
-      action: "APPROVE_SCRIPT_TIER_1",
-      target_table: "produksi_video",
-      target_id: "prod-01",
-      details: "Menyetujui naskah Podcast Ep 04 (Dual Gate 1/2)",
-      timestamp: "2026-09-02T10:14:00Z",
-    },
-    {
-      id: "log-2",
-      actor_id: "usr-ketua-bc",
-      actor_name: "Raditya Pratama",
-      actor_role: "ketua_broadcast",
-      action: "UPDATE_KAS_SETTINGS",
-      target_table: "kas_settings",
-      details: "Mengatur iuran kas menjadi Rp5.000/minggu",
-      timestamp: "2026-08-01T09:00:00Z",
-    },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
-  const switchUser = (userId: string) => {
-    const found = MOCK_USERS.find((u) => u.id === userId);
-    if (found) {
-      setCurrentUser(found);
+  // ── Fetch profile from Supabase profiles table ─────────────────────────────
+  const fetchAndSetProfile = useCallback(async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nama, email, role, divisi, signature_url")
+        .eq("id", userId)
+        .single();
+
+      if (error || !data) return null;
+
+      const profile: UserProfile = {
+        id: data.id,
+        nama: data.nama,
+        email: data.email,
+        role: data.role as UserRole,
+        divisi: data.divisi as DivisiName | undefined,
+        signature_url: data.signature_url ?? undefined,
+      };
+      return profile;
+    } catch {
+      return null;
     }
+  }, [supabase]);
+
+  // ── Restore session on mount via Supabase onAuthStateChange ───────────────
+  useEffect(() => {
+    let mounted = true;
+
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      if (session?.user) {
+        const profile = await fetchAndSetProfile(session.user.id);
+        if (profile && mounted) {
+          setCurrentUser(profile);
+          setIsLoggedIn(true);
+        }
+      }
+      if (mounted) setIsSessionLoading(false);
+    });
+
+    // Listen for auth changes (login/logout from other tabs)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        if (event === "SIGNED_IN" && session?.user) {
+          const profile = await fetchAndSetProfile(session.user.id);
+          if (profile) {
+            setCurrentUser(profile);
+            setIsLoggedIn(true);
+          }
+        } else if (event === "SIGNED_OUT") {
+          setCurrentUser(GUEST_PROFILE);
+          setIsLoggedIn(false);
+        }
+        setIsSessionLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchAndSetProfile, supabase.auth]);
+
+  // ── loginWithProfile: called after successful Supabase signIn ─────────────
+  const loginWithProfile = (profile: UserProfile) => {
+    setCurrentUser(profile);
+    setIsLoggedIn(true);
   };
 
+  // ── logout ────────────────────────────────────────────────────────────────
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(GUEST_PROFILE);
+    setIsLoggedIn(false);
+  };
+
+  // ── Audit logger ──────────────────────────────────────────────────────────
   const logAction = (action: string, targetTable: string, targetId?: string, details?: string) => {
     const newLog: AuditLogItem = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
@@ -132,7 +200,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
-  // Browser online/offline listeners
+  // ── Online/offline listener ───────────────────────────────────────────────
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -148,8 +216,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     <SessionContext.Provider
       value={{
         currentUser,
-        availableUsers: MOCK_USERS,
-        switchUser,
+        isLoggedIn,
+        isSessionLoading,
+        loginWithProfile,
+        logout,
         isOffline,
         setIsOffline,
         anggotaList,

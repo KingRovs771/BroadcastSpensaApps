@@ -14,11 +14,11 @@ interface NewProjectModalProps {
 }
 
 export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
-  const { currentUser, availableUsers, setProjectList, logAction } = useSession();
+  const { currentUser, anggotaList, setProjectList, logAction } = useSession();
 
   const [namaProject, setNamaProject] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [penanggungJawab, setPenanggungJawab] = useState(availableUsers[0]?.id || "");
+  const [penanggungJawab, setPenanggungJawab] = useState(anggotaList[0]?.id || "");
   const [selectedTim, setSelectedTim] = useState<string[]>([]);
   const [deadline, setDeadline] = useState("");
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
@@ -53,14 +53,14 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
       return;
     }
 
-    const pjUser = availableUsers.find((u) => u.id === penanggungJawab);
+    const pjAnggota = anggotaList.find((u) => u.id === penanggungJawab);
 
     const newProject: ProjectKanban = {
       id: `proj-${Date.now()}`,
       nama_project: namaProject,
       deskripsi,
       penanggung_jawab: penanggungJawab,
-      pj_name: pjUser?.nama || "PJ",
+      pj_name: pjAnggota?.nama_lengkap || "PJ",
       tim: selectedTim,
       deadline,
       status: "perencanaan",
@@ -174,9 +174,9 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
                 onChange={(e) => setPenanggungJawab(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
               >
-                {availableUsers.map((u) => (
+                {anggotaList.map((u) => (
                   <option key={u.id} value={u.id} className="bg-surface-2 text-white">
-                    {u.nama} ({u.role})
+                    {u.nama_lengkap} ({u.jabatan})
                   </option>
                 ))}
               </select>
@@ -236,7 +236,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
               Pilih Anggota Tim Terlibat
             </label>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-surface-1 rounded-lg border border-studio-border-subtle">
-              {availableUsers.map((u) => {
+              {anggotaList.map((u) => {
                 const isSelected = selectedTim.includes(u.id);
                 return (
                   <button
@@ -249,7 +249,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
                         : "bg-surface-2 border-studio-border-subtle text-studio-text-secondary hover:text-white"
                     }`}
                   >
-                    {u.nama}
+                    {u.nama_lengkap}
                   </button>
                 );
               })}

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 export default function ProduksiPage() {
-  const { currentUser, produksiList, setProduksiList, availableUsers, logAction } =
+  const { currentUser, produksiList, setProduksiList, anggotaList, logAction } =
     useSession();
 
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "in_production" | "done">("all");
@@ -53,7 +53,8 @@ export default function ProduksiPage() {
 
   // Action: Assign PJ (only when status is approved)
   const handleAssignPJ = (prodId: string, pjUserId: string) => {
-    const pjUser = availableUsers.find((u) => u.id === pjUserId);
+    const pjAnggota = anggotaList.find((u) => u.id === pjUserId);
+    const pjName = pjAnggota?.nama_lengkap ?? pjUserId;
     setProduksiList((prev) =>
       prev.map((p) => {
         if (p.id === prodId) {
@@ -61,7 +62,7 @@ export default function ProduksiPage() {
             ...p,
             status: "in_production",
             penanggung_jawab_id: pjUserId,
-            pj_name: pjUser?.nama,
+            pj_name: pjName,
           };
         }
         return p;
@@ -71,7 +72,7 @@ export default function ProduksiPage() {
       "ASSIGN_PJ",
       "produksi_video",
       prodId,
-      `Menugaskan PJ: ${pjUser?.nama}`
+      `Menugaskan PJ: ${pjName}`
     );
   };
 
@@ -360,11 +361,11 @@ export default function ProduksiPage() {
                         <option value="" disabled>
                           Pilih PJ Proyek...
                         </option>
-                        {availableUsers
-                          .filter((u) => u.role === "pj" || u.role === "div_kreatif" || u.role === "anggota")
+                        {anggotaList
+                          .filter((u) => u.status === "aktif")
                           .map((u) => (
                             <option key={u.id} value={u.id} className="bg-surface-2 text-white">
-                              {u.nama} ({u.divisi || "Umum"})
+                              {u.nama_lengkap} ({u.divisi || "Umum"})
                             </option>
                           ))}
                       </select>

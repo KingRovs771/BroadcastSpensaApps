@@ -22,7 +22,7 @@ export default function InventarisPage() {
     currentUser,
     inventarisList,
     setInventarisList,
-    availableUsers,
+    anggotaList,
     logAction,
   } = useSession();
 
@@ -30,7 +30,7 @@ export default function InventarisPage() {
   const [selectedDivisi, setSelectedDivisi] = useState<string>("all");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [selectedForLoan, setSelectedForLoan] = useState<InventarisItem | null>(null);
-  const [selectedBorrower, setSelectedBorrower] = useState(availableUsers[0]?.id || "");
+  const [selectedBorrower, setSelectedBorrower] = useState(anggotaList[0]?.id || "");
 
   // Form states for new item
   const [namaBarang, setNamaBarang] = useState("");
@@ -118,7 +118,7 @@ export default function InventarisPage() {
   const handleConfirmLoan = () => {
     if (!selectedForLoan) return;
 
-    const borrower = availableUsers.find((u) => u.id === selectedBorrower);
+    const borrower = anggotaList.find((u) => u.id === selectedBorrower);
 
     setInventarisList((prev) =>
       prev.map((i) =>
@@ -126,7 +126,7 @@ export default function InventarisPage() {
           ? {
               ...i,
               status: "dipinjam",
-              peminjam_nama: `${borrower?.nama} (${borrower?.role})`,
+              peminjam_nama: `${borrower?.nama_lengkap} (${borrower?.jabatan ?? '-'})`,
             }
           : i
       )
@@ -136,7 +136,7 @@ export default function InventarisPage() {
       "BORROW_INVENTARIS",
       "inventaris",
       selectedForLoan.id,
-      `Peminjaman aset ${selectedForLoan.nama_barang} oleh ${borrower?.nama}`
+      `Peminjaman aset ${selectedForLoan.nama_barang} oleh ${borrower?.nama_lengkap}`
     );
 
     setSelectedForLoan(null);
@@ -468,9 +468,9 @@ export default function InventarisPage() {
                   onChange={(e) => setSelectedBorrower(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
                 >
-                  {availableUsers.map((u) => (
+                  {anggotaList.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.nama} ({u.role})
+                      {u.nama_lengkap} ({u.jabatan})
                     </option>
                   ))}
                 </select>
