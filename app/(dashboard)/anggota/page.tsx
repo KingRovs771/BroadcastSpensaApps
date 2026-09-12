@@ -6,6 +6,7 @@ import { AnggotaRecord, DivisiName } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
 import { createClient } from "@/lib/supabase/client";
 import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
+import { exportAnggotaToCSV } from "@/lib/utils/excel";
 import {
   Users,
   Plus,
@@ -19,6 +20,7 @@ import {
   Shield,
   UserCheck,
   CheckCircle,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -227,7 +229,23 @@ export default function AnggotaPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Tombol Export Excel / CSV sesuai database */}
+          {(activeTab === "ekskul" || activeTab === "tetap") && (
+            <button
+              onClick={() => {
+                const targetData = anggotaList.filter((a) => a.tipe === activeTab);
+                const prefix = activeTab === "ekskul" ? "Data_Anggota_Ekskul" : "Data_Anggota_Tetap";
+                exportAnggotaToCSV(targetData, prefix);
+              }}
+              title="Download data dari database ke format Excel / CSV"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold border border-studio-border-subtle transition-all min-h-[44px]"
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+              <span>Export {activeTab === "ekskul" ? "Ekskul (.CSV/Excel)" : "Tetap (.CSV/Excel)"}</span>
+            </button>
+          )}
+
           {activeTab === "pembina" || activeTab === "users" ? (
             isPembinaOrAdmin && (
               <button
@@ -540,8 +558,26 @@ export default function AnggotaPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMembers.map((ang) => (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs text-studio-text-secondary">
+              <span>
+                Menampilkan <strong className="text-white">{filteredMembers.length}</strong> siswa {activeTab === "ekskul" ? "ekstrakurikuler" : "anggota tetap"} di database
+              </span>
+              <button
+                onClick={() => {
+                  const targetData = anggotaList.filter((a) => a.tipe === activeTab);
+                  const prefix = activeTab === "ekskul" ? "Data_Anggota_Ekskul" : "Data_Anggota_Tetap";
+                  exportAnggotaToCSV(targetData, prefix);
+                }}
+                className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-mono text-[11px] self-start sm:self-auto underline underline-offset-4"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Unduh Spreadsheet {activeTab === "ekskul" ? "Ekskul" : "Tetap"} ({anggotaList.filter((a) => a.tipe === activeTab).length} Siswa)</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMembers.map((ang) => (
               <div
                 key={ang.id}
                 className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3"
@@ -586,6 +622,7 @@ export default function AnggotaPage() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )
       )}

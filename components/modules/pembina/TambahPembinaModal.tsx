@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/components/shared/SessionContext";
-import { UserProfile, UserRole, DivisiName } from "@/lib/mock/store";
+import { UserProfile, UserRole, DivisiName, AnggotaRecord } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
+import { getAcademicSemester } from "@/lib/utils/semester";
 import {
   X,
   UserCheck,
@@ -18,6 +19,7 @@ import {
   Shield,
   Eye,
   EyeOff,
+  GraduationCap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,6 +28,11 @@ interface TambahPembinaModalProps {
   onClose: () => void;
   onSuccess?: (newPembina: UserProfile) => void;
 }
+
+const TINGKAT_KELAS_OPTIONS = ["VII", "VIII", "IX"] as const;
+const ROMBEL_OPTIONS = [
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
+] as const;
 
 const ROLE_OPTIONS: { value: UserRole; label: string; desc: string }[] = [
   { value: "pembina", label: "Dewan Pembina", desc: "Supervisi, Approval Gate 1 & Anggaran" },
@@ -45,7 +52,7 @@ export function TambahPembinaModal({
   onSuccess,
 }: TambahPembinaModalProps) {
   const supabase = createClient();
-  const { logAction, refreshData, setPembinaList, setAllUsers } = useSession();
+  const { logAction, refreshData, setPembinaList, setAllUsers, setAnggotaList } = useSession();
 
   const [nama, setNama] = useState("");
   const [nip, setNip] = useState("");
@@ -56,6 +63,12 @@ export function TambahPembinaModal({
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
   const [jabatanSekolah, setJabatanSekolah] = useState("Guru Pembina Ekskul");
   const [noHp, setNoHp] = useState("");
+
+  // Opsi Tambah Sekaligus sebagai Anggota Tetap
+  const [daftarSebagaiAnggotaTetap, setDaftarSebagaiAnggotaTetap] = useState(false);
+  const [tingkatKelas, setTingkatKelas] = useState<"VII" | "VIII" | "IX">("VIII");
+  const [rombelKelas, setRombelKelas] = useState<string>("A");
+  const [nisn, setNisn] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -95,7 +108,7 @@ export function TambahPembinaModal({
             nip: nip.trim() || undefined,
             jabatan: jabatanSekolah.trim(),
             no_hp: noHp.trim() || undefined,
-            divisi: selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" ? divisi : undefined,
+            divisi: selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj" ? divisi : undefined,
           },
         },
       });
@@ -128,7 +141,7 @@ export function TambahPembinaModal({
           nama: nama.trim(),
           email: email.trim().toLowerCase(),
           role: selectedRole,
-          divisi: (selectedRole === "div_kreatif" || selectedRole === "ketua_divisi") ? divisi : null,
+          divisi: (selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj") ? divisi : null,
         },
         { onConflict: "id" }
       );
@@ -142,25 +155,75 @@ export function TambahPembinaModal({
         nama: nama.trim(),
         email: email.trim().toLowerCase(),
         role: selectedRole,
-        divisi: (selectedRole === "div_kreatif" || selectedRole === "ketua_divisi") ? divisi : undefined,
+        divisi: (selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj") ? divisi : undefined,
       };
 
       // 3. Update local session context state immediately
-      setAllUsers((prev) => {
-        const exists = prev.some((p) => p.id === userId || p.email === newProfile.email);
-        if (exists) return prev.map((p) => (p.email === newProfile.email ? newProfile : p));
+      setAllUsers((prev: UserProfile[]) => {
+        const exists = prev.some((p: UserProfile) => p.id === userId || p.email === newProfile.email);
+        if (exists) return prev.map((p: UserProfile) => (p.email === newProfile.email ? newProfile : p));
         return [newProfile, ...prev];
       });
 
-      if (selectedRole === "pembina") {
-        setPembinaList((prev) => {
-          const exists = prev.some((p) => p.id === userId || p.email === newProfile.email);
-          if (exists) return prev.map((p) => (p.email === newProfile.email ? newProfile : p));
+      if (selectedRole === "pembina" || selectedRole === "administrator") {
+        setPembinaList((prev: UserProfile[]) => {
+          const exists = prev.some((p: UserProfile) => p.id === userId || p.email === newProfile.email);
+          if (exists) return prev.map((p: UserProfile) => (p.email === newProfile.email ? newProfile : p));
           return [newProfile, ...prev];
         });
       }
 
-      // 4. Catat audit log
+      // 4. DAFTARKAN SEKALIGUS KE BUKU INDUK ANGGOTA TETAP (Jika opsi aktif)
+      let autoKelas = "";
+      if (daftarSebagaiAnggotaTetap) {
+        autoKelas = `${tingkatKelas}-${rombelKelas}`;
+        const finalNis = nip.trim() || `26${Math.floor(1000 + Math.random() * 9000)}`;
+        const currentAcademic = getAcademicSemester(new Date());
+
+        const newAnggotaRecord: AnggotaRecord = {
+          id: `ang-${Date.now()}`,
+          tipe: "tetap",
+          nama_lengkap: nama.trim(),
+          nis: finalNis,
+          nisn: nisn.trim() || undefined,
+          kelas: autoKelas,
+          jabatan: jabatanSekolah.trim() || selectedRole.replace(/_/g, " "),
+          divisi: (selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj") ? divisi : undefined,
+          tahun_ajaran: currentAcademic.tahunAjaran,
+          status: "aktif",
+          no_hp: noHp.trim() || undefined,
+        };
+
+        // Insert ke tabel Supabase public.anggota
+        const { error: anggotaErr } = await supabase.from("anggota").insert({
+          tipe: "tetap",
+          nama_lengkap: newAnggotaRecord.nama_lengkap,
+          nis: newAnggotaRecord.nis,
+          nisn: newAnggotaRecord.nisn || null,
+          kelas: newAnggotaRecord.kelas,
+          jabatan: newAnggotaRecord.jabatan,
+          divisi: newAnggotaRecord.divisi || null,
+          tahun_ajaran: newAnggotaRecord.tahun_ajaran,
+          status: newAnggotaRecord.status,
+          no_hp: newAnggotaRecord.no_hp || null,
+        });
+
+        if (anggotaErr) {
+          console.warn("Anggota insert notice:", anggotaErr);
+        }
+
+        // Update state anggotaList
+        setAnggotaList((prev: AnggotaRecord[]) => [newAnggotaRecord, ...prev]);
+
+        logAction(
+          "REGISTER_ANGGOTA_TETAP_AUTO",
+          "anggota",
+          newAnggotaRecord.id,
+          `Auto-registrasi Anggota Tetap via Akun: ${nama.trim()} (${autoKelas})`
+        );
+      }
+
+      // 5. Catat audit log untuk pendaftaran akun
       logAction(
         "REGISTER_USER",
         "profiles",
@@ -178,15 +241,15 @@ export function TambahPembinaModal({
         console.warn("Refresh notice:", err);
       }
 
-      if (isRateLimited) {
-        setSuccessMsg(
-          `Berhasil mendaftarkan ${nama}! Akun telah ditambahkan ke sistem. (Catatan: Kuota email Supabase gratis sedang penuh, akun dapat langsung diverifikasi di Supabase Auth).`
-        );
-      } else {
-        setSuccessMsg(
-          `Berhasil mendaftarkan ${nama} (${selectedRole.toUpperCase()}). Akun dapat langsung digunakan.`
-        );
+      let notif = `Berhasil mendaftarkan akun ${nama} (${selectedRole.toUpperCase()}).`;
+      if (daftarSebagaiAnggotaTetap) {
+        notif += ` Sekaligus resmi tercatat sebagai Anggota Tetap Kelas ${autoKelas} di Buku Induk!`;
       }
+      if (isRateLimited) {
+        notif += ` (Catatan: Kuota email Supabase gratis sedang penuh, akun telah aktif di sistem).`;
+      }
+
+      setSuccessMsg(notif);
 
       // Reset form
       setNama("");
@@ -287,16 +350,28 @@ export function TambahPembinaModal({
                       setSelectedRole(newRole);
                       if (newRole === "pembina") {
                         setJabatanSekolah("Guru Pembina Ekskul");
+                        setDaftarSebagaiAnggotaTetap(false);
                       } else if (newRole === "administrator") {
                         setJabatanSekolah("Administrator Sistem");
+                        setDaftarSebagaiAnggotaTetap(true);
                       } else if (newRole === "ketua_broadcast") {
                         setJabatanSekolah("Ketua Umum Broadcast");
+                        setDaftarSebagaiAnggotaTetap(true);
                       } else if (newRole === "sekretaris") {
                         setJabatanSekolah("Sekretaris");
+                        setDaftarSebagaiAnggotaTetap(true);
                       } else if (newRole === "bendahara") {
                         setJabatanSekolah("Bendahara");
+                        setDaftarSebagaiAnggotaTetap(true);
+                      } else if (newRole === "div_kreatif") {
+                        setJabatanSekolah("Staf Divisi Kreatif");
+                        setDaftarSebagaiAnggotaTetap(true);
+                      } else if (newRole === "pj") {
+                        setJabatanSekolah("Penanggung Jawab Project");
+                        setDaftarSebagaiAnggotaTetap(true);
                       } else {
-                        setJabatanSekolah("Anggota Tim");
+                        setJabatanSekolah("Anggota");
+                        setDaftarSebagaiAnggotaTetap(true);
                       }
                     }}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#111C3B] border border-white/10 text-xs text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 focus:outline-none min-h-[44px]"
@@ -358,7 +433,7 @@ export function TambahPembinaModal({
                     type="text"
                     value={nip}
                     onChange={(e) => setNip(e.target.value)}
-                    placeholder={selectedRole === "pembina" ? "197804122005012008" : "Nomor Identitas"}
+                    placeholder={selectedRole === "pembina" ? "197804122005012008" : "Nomor Induk Siswa"}
                     className="w-full px-3 py-2.5 rounded-xl bg-[#111C3B] border border-white/10 text-xs font-mono text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 focus:outline-none min-h-[44px]"
                   />
                 </div>
@@ -439,6 +514,74 @@ export function TambahPembinaModal({
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#111C3B] border border-white/10 text-xs font-mono text-white placeholder:text-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 focus:outline-none min-h-[44px]"
                   />
                 </div>
+              </div>
+
+              {/* Opsi Daftarkan Sekaligus sebagai Anggota Tetap */}
+              <div className="p-4 rounded-2xl bg-[#0e1736] border border-cyan-500/30 space-y-3 shadow-lg shadow-cyan-950/20">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={daftarSebagaiAnggotaTetap}
+                    onChange={(e) => setDaftarSebagaiAnggotaTetap(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-spectrum-cyan border-white/20 bg-[#111C3B] focus:ring-spectrum-cyan/30 focus:ring-offset-0 cursor-pointer accent-cyan-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <UserCheck className="w-4 h-4 text-spectrum-cyan" />
+                      Daftarkan Sekaligus ke Buku Induk Anggota Tetap
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                      Akun pengguna ini akan otomatis terdaftar sebagai <strong>Anggota Tetap</strong> di direktori Buku Induk sehingga tidak perlu 2x mengisi data.
+                    </p>
+                  </div>
+                </label>
+
+                {daftarSebagaiAnggotaTetap && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        Kelas Siswa *
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={tingkatKelas}
+                          onChange={(e) => setTingkatKelas(e.target.value as "VII" | "VIII" | "IX")}
+                          className="w-full px-2.5 py-2 rounded-xl bg-[#111C3B] border border-white/10 text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
+                        >
+                          {TINGKAT_KELAS_OPTIONS.map((t) => (
+                            <option key={t} value={t} className="bg-[#0B132B]">
+                              Kelas {t}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={rombelKelas}
+                          onChange={(e) => setRombelKelas(e.target.value)}
+                          className="w-full px-2.5 py-2 rounded-xl bg-[#111C3B] border border-white/10 text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
+                        >
+                          {ROMBEL_OPTIONS.map((r) => (
+                            <option key={r} value={r} className="bg-[#0B132B]">
+                              Ruang {r}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        NISN Siswa (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={nisn}
+                        onChange={(e) => setNisn(e.target.value)}
+                        placeholder="Contoh: 0081234567"
+                        className="w-full px-3 py-2 rounded-xl bg-[#111C3B] border border-white/10 text-xs font-mono text-white placeholder:text-slate-500 focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-3 rounded-xl bg-violet-950/40 border border-violet-800/30 text-[11px] text-slate-400 leading-relaxed">
