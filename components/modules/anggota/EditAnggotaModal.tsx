@@ -197,7 +197,7 @@ export function EditAnggotaModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-lg w-full p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10 space-y-4"
+          className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10 space-y-4"
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-studio-border-subtle">
@@ -420,12 +420,12 @@ export function EditAnggotaModal({
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-studio-border-subtle">
+            <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-studio-border-subtle">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-1 text-slate-300 hover:text-white transition-colors min-h-[44px]"
+                className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-1 text-slate-300 hover:text-white transition-colors min-h-[44px] text-xs font-semibold"
               >
                 Batal
               </button>
@@ -433,7 +433,7 @@ export function EditAnggotaModal({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-5 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink font-bold transition-all shadow-cyan flex items-center gap-2 min-h-[44px] disabled:opacity-50"
+                className="flex-1 sm:flex-initial px-5 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink font-bold transition-all shadow-cyan flex items-center justify-center gap-2 min-h-[44px] text-xs disabled:opacity-50"
               >
                 {isLoading ? (
                   <>

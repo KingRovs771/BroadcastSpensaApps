@@ -97,7 +97,7 @@ export function HapusAnggotaModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 16 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative bg-surface-2 border border-rose-500/30 rounded-2xl max-w-md w-full p-6 shadow-orbital z-10 space-y-4"
+          className="relative bg-surface-2 border border-rose-500/30 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-orbital z-10 space-y-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="w-11 h-11 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0">
@@ -160,12 +160,12 @@ export function HapusAnggotaModal({
           )}
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isDeleting}
-              className="px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-1 text-slate-300 hover:text-white text-xs font-semibold transition-colors min-h-[44px]"
+              className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-1 text-slate-300 hover:text-white text-xs font-semibold transition-colors min-h-[44px]"
             >
               Batal
             </button>
@@ -174,7 +174,7 @@ export function HapusAnggotaModal({
               type="button"
               onClick={handleConfirmDelete}
               disabled={isDeleting}
-              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg shadow-rose-900/30 flex items-center gap-2 min-h-[44px] disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg shadow-rose-900/30 flex items-center justify-center gap-2 min-h-[44px] disabled:opacity-50"
             >
               {isDeleting ? (
                 <>

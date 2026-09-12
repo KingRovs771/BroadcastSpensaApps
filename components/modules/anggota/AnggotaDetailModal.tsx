@@ -99,13 +99,13 @@ export function AnggotaDetailModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-xl w-full p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10 space-y-5"
+          className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10 space-y-4 sm:space-y-5"
         >
           {/* Header */}
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-studio-border-subtle">
-            <div className="flex items-center gap-3.5">
+          <div className="flex items-start justify-between gap-3 pb-3 sm:pb-4 border-b border-studio-border-subtle">
+            <div className="flex items-center gap-3">
               <div
-                className={`w-13 h-13 rounded-2xl flex items-center justify-center text-lg font-bold shadow-md shrink-0 ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-base sm:text-lg font-bold shadow-md shrink-0 ${
                   anggota.tipe === "tetap"
                     ? "bg-gradient-to-br from-cyan-600/30 to-blue-600/30 text-spectrum-cyan border border-spectrum-cyan/40"
                     : "bg-gradient-to-br from-violet-600/30 to-pink-600/30 text-orbital-magenta border border-orbital-violet/40"
@@ -287,38 +287,41 @@ export function AnggotaDetailModal({
           )}
 
           {/* Action Footer */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-studio-border-subtle">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 border-t border-studio-border-subtle">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               {canEdit && onEdit && (
                 <button
+                  type="button"
                   onClick={() => {
                     onClose();
                     onEdit(anggota);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-surface-3 hover:bg-surface-1 text-white text-xs font-bold border border-studio-border-medium hover:border-spectrum-cyan/50 flex items-center gap-2 transition-colors min-h-[44px]"
+                  className="flex-1 sm:flex-initial px-3.5 sm:px-4 py-2.5 rounded-xl bg-surface-3 hover:bg-surface-1 text-white text-xs font-bold border border-studio-border-medium hover:border-spectrum-cyan/50 flex items-center justify-center gap-2 transition-colors min-h-[44px]"
                 >
                   <Edit className="w-4 h-4 text-spectrum-cyan" />
-                  <span>Edit Data Siswa</span>
+                  <span>Edit Data</span>
                 </button>
               )}
 
               {canDelete && onDelete && (
                 <button
+                  type="button"
                   onClick={() => {
                     onClose();
                     onDelete(anggota);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-bold border border-rose-500/30 flex items-center gap-2 transition-colors min-h-[44px]"
+                  className="flex-1 sm:flex-initial px-3.5 sm:px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-bold border border-rose-500/30 flex items-center justify-center gap-2 transition-colors min-h-[44px]"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span>Hapus Siswa</span>
+                  <span>Hapus</span>
                 </button>
               )}
             </div>
 
             <button
+              type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors min-h-[44px]"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors min-h-[44px]"
             >
               Tutup
             </button>

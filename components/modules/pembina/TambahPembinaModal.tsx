@@ -289,7 +289,7 @@ export function TambahPembinaModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative bg-[#0B132B] border border-violet-500/30 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl overflow-hidden z-10 max-h-[92vh] flex flex-col"
+          className="relative bg-[#0B132B] border border-violet-500/30 rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-7 shadow-2xl overflow-hidden z-10 max-h-[92vh] flex flex-col"
         >
           {/* Top accent border */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-600 via-pink-500 to-cyan-400" />

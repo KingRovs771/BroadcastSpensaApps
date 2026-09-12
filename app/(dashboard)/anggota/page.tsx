@@ -63,6 +63,7 @@ export default function AnggotaPage() {
 
   const [activeTab, setActiveTab] = useState<"tetap" | "ekskul" | "pembina" | "users">("tetap");
   const [searchQuery, setSearchQuery] = useState("");
+  const [kelasFilter, setKelasFilter] = useState<"all" | "VII" | "VIII" | "IX">("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPembinaModalOpen, setIsPembinaModalOpen] = useState(false);
 
@@ -148,13 +149,19 @@ export default function AnggotaPage() {
     }
   };
 
-  // Filter anggota berdasarkan tab & search
+  // Filter anggota berdasarkan tab, kelas, & search
   const filteredMembers = anggotaList
     .filter((a) => a.tipe === activeTab)
+    .filter((a) => {
+      if (kelasFilter === "all") return true;
+      return a.kelas.startsWith(kelasFilter);
+    })
     .filter((a) =>
       a.nama_lengkap.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.nis.includes(searchQuery) ||
-      a.kelas.toLowerCase().includes(searchQuery.toLowerCase())
+      a.kelas.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.jabatan.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.divisi && a.divisi.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
   // Filter pembina
@@ -238,20 +245,25 @@ export default function AnggotaPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5">
+      {/* Header Responsif */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-spectrum-cyan" />
-            Buku Induk Anggota & Pembina Broadcast Spensa
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-spectrum-cyan/15 text-spectrum-cyan border border-spectrum-cyan/30">
+              BUKU INDUK STUDIO
+            </span>
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2 mt-1">
+            <Users className="w-5 h-5 text-spectrum-cyan shrink-0" />
+            <span>Direktori Anggota &amp; Pengurus</span>
           </h1>
-          <p className="text-xs text-studio-text-secondary mt-1">
-            Direktori resmi anggota ekstrakurikuler (Tetap &amp; Ekskul) serta Dewan Pembina SMPN 1 Spensa.
+          <p className="text-xs text-studio-text-secondary mt-0.5">
+            Basis data keanggotaan ekstrakurikuler &amp; struktur akun Broadcast Spensa.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* Tombol Export Excel / CSV sesuai database */}
           {(activeTab === "ekskul" || activeTab === "tetap") && (
             <button
@@ -261,10 +273,10 @@ export default function AnggotaPage() {
                 exportAnggotaToCSV(targetData, prefix);
               }}
               title="Download data dari database ke format Excel / CSV"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold border border-studio-border-subtle transition-all min-h-[44px]"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold border border-studio-border-subtle transition-all min-h-[42px]"
             >
-              <Download className="w-4 h-4 text-emerald-400" />
-              <span>Export {activeTab === "ekskul" ? "Ekskul (.CSV/Excel)" : "Tetap (.CSV/Excel)"}</span>
+              <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Export <span className="hidden xs:inline sm:inline">CSV</span></span>
             </button>
           )}
 
@@ -272,10 +284,10 @@ export default function AnggotaPage() {
             isPembinaOrAdmin && (
               <button
                 onClick={() => setIsPembinaModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 min-h-[44px]"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 min-h-[42px]"
               >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Pengguna / Pembina</span>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>+ Akun / Pembina</span>
               </button>
             )
           ) : (
@@ -283,96 +295,124 @@ export default function AnggotaPage() {
               <button
                 onClick={() => setIsModalOpen(true)}
                 aria-label="Registrasi Anggota Baru"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[42px]"
               >
-                <Plus className="w-4 h-4" />
-                <span>Tambah {activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}</span>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>+ Siswa {activeTab === "tetap" ? "Tetap" : "Ekskul"}</span>
               </button>
             )
           )}
         </div>
       </div>
 
-      {/* Tabs Segregation (4 Tab: Tetap, Ekskul, Pembina, Users) */}
-      <div className="flex items-center gap-2 sm:gap-4 border-b border-studio-border-subtle overflow-x-auto pb-px">
+      {/* Tabs Segregation (Pill-based horizontal scroll on mobile) */}
+      <div className="flex items-center gap-2 border-b border-studio-border-subtle overflow-x-auto pb-2 scrollbar-none">
         <button
           onClick={() => setActiveTab("tetap")}
-          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border min-h-[38px] ${
             activeTab === "tetap"
-              ? "text-spectrum-cyan border-b-2 border-spectrum-cyan font-extrabold shadow-cyan"
-              : "text-studio-text-secondary hover:text-white"
+              ? "bg-spectrum-cyan/15 text-spectrum-cyan border-spectrum-cyan/40 shadow-cyan font-extrabold"
+              : "bg-surface-1 text-studio-text-secondary hover:text-white border-studio-border-subtle"
           }`}
         >
-          <Award className="w-4 h-4" />
+          <Award className="w-3.5 h-3.5" />
           <span>Anggota Tetap</span>
-          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-spectrum-cyan/20 text-spectrum-cyan border border-spectrum-cyan/30">
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-spectrum-cyan/20 text-spectrum-cyan">
             {anggotaList.filter((a) => a.tipe === "tetap").length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("ekskul")}
-          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border min-h-[38px] ${
             activeTab === "ekskul"
-              ? "text-orbital-magenta border-b-2 border-orbital-violet font-extrabold shadow-orbital"
-              : "text-studio-text-secondary hover:text-white"
+              ? "bg-orbital-violet/20 text-orbital-magenta border-orbital-violet/50 shadow-orbital font-extrabold"
+              : "bg-surface-1 text-studio-text-secondary hover:text-white border-studio-border-subtle"
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-3.5 h-3.5" />
           <span>Anggota Ekskul</span>
-          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-orbital-violet/20 text-orbital-magenta border border-orbital-violet/30">
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-orbital-violet/20 text-orbital-magenta">
             {anggotaList.filter((a) => a.tipe === "ekskul").length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("pembina")}
-          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border min-h-[38px] ${
             activeTab === "pembina"
-              ? "text-spectrum-amber border-b-2 border-spectrum-amber font-extrabold shadow-amber"
-              : "text-studio-text-secondary hover:text-white"
+              ? "bg-spectrum-amber/15 text-spectrum-amber border-spectrum-amber/40 shadow-amber font-extrabold"
+              : "bg-surface-1 text-studio-text-secondary hover:text-white border-studio-border-subtle"
           }`}
         >
-          <GraduationCap className="w-4 h-4" />
+          <GraduationCap className="w-3.5 h-3.5" />
           <span>Dewan Pembina</span>
-          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-spectrum-amber/20 text-spectrum-amber border border-spectrum-amber/30">
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-spectrum-amber/20 text-spectrum-amber">
             {pembinaList.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border min-h-[38px] ${
             activeTab === "users"
-              ? "text-emerald-400 border-b-2 border-emerald-400 font-extrabold"
-              : "text-studio-text-secondary hover:text-white"
+              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-extrabold"
+              : "bg-surface-1 text-studio-text-secondary hover:text-white border-studio-border-subtle"
           }`}
         >
-          <Shield className="w-4 h-4" />
-          <span>Semua Pengguna (Users)</span>
-          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          <Shield className="w-3.5 h-3.5" />
+          <span>Akun Pengguna</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400">
             {(allUsers || []).length}
           </span>
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-sm">
-        <Search className="w-4 h-4 text-studio-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          aria-label="Cari data"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={
-            activeTab === "users"
-              ? "Cari nama, email, atau role pengguna..."
-              : activeTab === "pembina"
-              ? "Cari nama atau email pembina..."
-              : "Cari nama, NIS, atau kelas siswa..."
-          }
-          className="w-full pl-9 pr-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
-        />
+      {/* Search & Quick Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-studio-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            aria-label="Cari data"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={
+              activeTab === "users"
+                ? "Cari nama, email, role..."
+                : activeTab === "pembina"
+                ? "Cari nama, email pembina..."
+                : "Cari nama, NIS, kelas, jabatan, divisi..."
+            }
+            className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[42px]"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {(activeTab === "tetap" || activeTab === "ekskul") && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {(["all", "VII", "VIII", "IX"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setKelasFilter(k)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap transition-all border ${
+                  kelasFilter === k
+                    ? "bg-white/15 text-white border-white/30 font-bold"
+                    : "bg-surface-1 text-slate-400 border-studio-border-subtle hover:text-white"
+                }`}
+              >
+                {k === "all" ? "Semua Kelas" : `Kelas ${k}`}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Content: Semua Pengguna (Users) View ────────────────────────────── */}
@@ -417,7 +457,7 @@ export default function AnggotaPage() {
                 return (
                   <div
                     key={user.id}
-                    className={`p-5 rounded-2xl bg-surface-1 border transition-all space-y-3 relative group ${
+                    className={`p-4 sm:p-5 rounded-2xl bg-surface-1 border transition-all space-y-3 relative group ${
                       isSelf
                         ? "border-spectrum-cyan/50 shadow-cyan"
                         : "border-studio-border-subtle hover:border-studio-border-medium"
@@ -511,7 +551,7 @@ export default function AnggotaPage() {
             {filteredPembina.map((pem) => (
               <div
                 key={pem.id}
-                className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-violet-500/40 transition-all space-y-3 relative group"
+                className="p-4 sm:p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-violet-500/40 transition-all space-y-3 relative group"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
@@ -580,65 +620,100 @@ export default function AnggotaPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs text-studio-text-secondary">
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between gap-2 px-1 text-xs text-studio-text-secondary">
               <span>
-                Menampilkan <strong className="text-white">{filteredMembers.length}</strong> siswa {activeTab === "ekskul" ? "ekstrakurikuler" : "anggota tetap"} di database
+                Menampilkan <strong className="text-white">{filteredMembers.length}</strong> siswa {activeTab === "ekskul" ? "ekstrakurikuler" : "anggota tetap"}
               </span>
-              <button
-                onClick={() => {
-                  const targetData = anggotaList.filter((a) => a.tipe === activeTab);
-                  const prefix = activeTab === "ekskul" ? "Data_Anggota_Ekskul" : "Data_Anggota_Tetap";
-                  exportAnggotaToCSV(targetData, prefix);
-                }}
-                className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-mono text-[11px] self-start sm:self-auto underline underline-offset-4"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Unduh Spreadsheet {activeTab === "ekskul" ? "Ekskul" : "Tetap"} ({anggotaList.filter((a) => a.tipe === activeTab).length} Siswa)</span>
-              </button>
+              {kelasFilter !== "all" && (
+                <button
+                  onClick={() => setKelasFilter("all")}
+                  className="text-spectrum-cyan hover:underline text-[11px] font-mono"
+                >
+                  Reset Filter (Kelas {kelasFilter})
+                </button>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {filteredMembers.map((ang) => (
               <div
                 key={ang.id}
-                className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3"
+                className="p-4 sm:p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3 relative group"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-2 text-white border border-studio-border-subtle">
-                    NIS: {ang.nis}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-spectrum-jade/15 text-spectrum-jade border border-spectrum-jade/30">
-                    {ang.status.toUpperCase()}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-bold text-white leading-snug">
-                    {ang.nama_lengkap}
-                  </h3>
-                  <p className="text-xs text-studio-text-secondary mt-0.5 font-mono">
-                    Kelas {ang.kelas} · TA {ang.tahun_ajaran}
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-1 text-xs">
-                  <div className="flex justify-between text-studio-text-secondary">
-                    <span>Jabatan:</span>
-                    <strong className="text-white">{ang.jabatan}</strong>
+                {/* Header Kartu: Inisial Avatar, Nama, NIS, dan Status */}
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 shadow-sm ${
+                      ang.tipe === "tetap"
+                        ? "bg-gradient-to-br from-cyan-600/25 to-blue-600/25 text-spectrum-cyan border border-spectrum-cyan/35"
+                        : "bg-gradient-to-br from-violet-600/25 to-pink-600/25 text-orbital-magenta border border-orbital-violet/35"
+                    }`}
+                  >
+                    {ang.nama_lengkap.charAt(0).toUpperCase()}
                   </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-2 text-white border border-studio-border-subtle">
+                        NIS {ang.nis}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase border ${
+                          ang.status === "aktif"
+                            ? "bg-spectrum-jade/15 text-spectrum-jade border-spectrum-jade/30"
+                            : ang.status === "cuti"
+                            ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                            : "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                        }`}
+                      >
+                        {ang.status}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-white leading-snug truncate mt-1">
+                      {ang.nama_lengkap}
+                    </h3>
+                    <p className="text-[11px] text-studio-text-secondary font-mono flex items-center gap-1 mt-0.5 truncate">
+                      <GraduationCap className="w-3 h-3 text-spectrum-cyan shrink-0" />
+                      <span>Kelas {ang.kelas}</span>
+                      <span>·</span>
+                      <span>TA {ang.tahun_ajaran}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Box Detail: Jabatan, Divisi, WhatsApp */}
+                <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-studio-text-secondary text-[11px]">Jabatan:</span>
+                    <strong className="text-white truncate max-w-[170px] text-right font-medium">
+                      {ang.jabatan}
+                    </strong>
+                  </div>
+
                   {ang.divisi && (
-                    <div className="flex justify-between text-studio-text-secondary">
-                      <span>Divisi:</span>
-                      <span className="text-spectrum-cyan font-semibold">{ang.divisi}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-studio-text-secondary text-[11px]">Divisi:</span>
+                      <span className="text-spectrum-cyan font-semibold text-[11px] font-mono">
+                        {ang.divisi}
+                      </span>
                     </div>
                   )}
+
                   {ang.no_hp && (
-                    <div className="flex justify-between text-studio-text-secondary pt-1 border-t border-studio-border-subtle">
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> WhatsApp:
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-studio-border-subtle">
+                      <span className="text-studio-text-secondary text-[11px] flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-emerald-400" /> WhatsApp:
                       </span>
-                      <span className="font-mono text-white">{ang.no_hp}</span>
+                      <a
+                        href={`https://wa.me/${ang.no_hp.replace(/\D/g, "").replace(/^0/, "62")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 text-[11px]"
+                      >
+                        <span>{ang.no_hp}</span>
+                      </a>
                     </div>
                   )}
                 </div>
@@ -649,7 +724,7 @@ export default function AnggotaPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedDetailAnggota(ang)}
-                      className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[38px]"
+                      className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px]"
                     >
                       <Eye className="w-3.5 h-3.5 text-spectrum-cyan" />
                       <span>Lihat Detail</span>
@@ -661,7 +736,7 @@ export default function AnggotaPage() {
                       type="button"
                       onClick={() => setSelectedEditAnggota(ang)}
                       title="Edit Data Siswa"
-                      className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-studio-border-medium min-h-[38px] min-w-[38px] flex items-center justify-center"
+                      className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
                     >
                       <Edit className="w-3.5 h-3.5 text-spectrum-cyan" />
                     </button>
@@ -672,7 +747,7 @@ export default function AnggotaPage() {
                       type="button"
                       onClick={() => setSelectedDeleteAnggota(ang)}
                       title="Hapus Data Siswa"
-                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[38px] min-w-[38px] flex items-center justify-center"
+                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -707,7 +782,7 @@ export default function AnggotaPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-md w-full p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10"
+              className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10"
             >
               <div className="flex items-center justify-between pb-4 border-b border-studio-border-subtle">
                 <h3 className="text-base font-bold text-white">
@@ -857,17 +932,17 @@ export default function AnggotaPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-studio-border-subtle">
+                <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-4 border-t border-studio-border-subtle">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 rounded-lg text-xs font-semibold text-studio-text-secondary hover:text-white transition-colors min-h-[44px]"
+                    className="flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-semibold text-studio-text-secondary hover:text-white transition-colors min-h-[44px]"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-lg bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
+                    className="flex-1 sm:flex-initial px-5 py-2 rounded-lg bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px] flex items-center justify-center"
                   >
                     Simpan Anggota
                   </button>
