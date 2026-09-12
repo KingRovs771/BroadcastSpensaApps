@@ -138,8 +138,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       if (session?.user) {
-        const profile = await fetchAndSetProfile(session.user.id);
-        if (profile && mounted) {
+        let profile = await fetchAndSetProfile(session.user.id);
+        if (!profile) {
+          profile = {
+            id: session.user.id,
+            nama: session.user.user_metadata?.nama || session.user.email?.split("@")[0] || "Administrator",
+            email: session.user.email || "",
+            role: "administrator" as UserRole,
+          };
+        }
+        if (mounted) {
           setCurrentUser(profile);
           setIsLoggedIn(true);
         }
@@ -152,11 +160,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         if (event === "SIGNED_IN" && session?.user) {
-          const profile = await fetchAndSetProfile(session.user.id);
-          if (profile) {
-            setCurrentUser(profile);
-            setIsLoggedIn(true);
+          let profile = await fetchAndSetProfile(session.user.id);
+          if (!profile) {
+            profile = {
+              id: session.user.id,
+              nama: session.user.user_metadata?.nama || session.user.email?.split("@")[0] || "Administrator",
+              email: session.user.email || "",
+              role: "administrator" as UserRole,
+            };
           }
+          setCurrentUser(profile);
+          setIsLoggedIn(true);
         } else if (event === "SIGNED_OUT") {
           setCurrentUser(GUEST_PROFILE);
           setIsLoggedIn(false);

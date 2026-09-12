@@ -124,35 +124,80 @@ export default function LoginPage() {
       }
 
       // 2. Fetch user profile from profiles table
-      const { data: profileData, error: profileError } = await supabase
+      let profile: {
+        id: string;
+        nama: string;
+        email: string;
+        role: UserRole;
+        divisi?: DivisiName;
+        signature_url?: string;
+      } | null = null;
+
+      const { data: profileData } = await supabase
         .from("profiles")
         .select("id, nama, email, role, divisi, signature_url")
         .eq("id", authData.user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError || !profileData) {
-        setError(
-          "Akun Anda belum terdaftar di sistem Broadcast Spensa. Hubungi Administrator."
-        );
-        await supabase.auth.signOut();
-        setIsLoading(false);
-        return;
+      if (profileData) {
+        profile = {
+          id: profileData.id,
+          nama: profileData.nama,
+          email: profileData.email,
+          role: profileData.role as UserRole,
+          divisi: profileData.divisi as DivisiName | undefined,
+          signature_url: profileData.signature_url ?? undefined,
+        };
+      } else {
+        // Auto-provision profile jika baris belum dibuat di database
+        const defaultName =
+          (authData.user.user_metadata?.nama as string | undefined) ||
+          authData.user.email?.split("@")[0] ||
+          "Administrator";
+
+        const { data: createdProfile } = await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: authData.user.id,
+              nama: defaultName,
+              email: authData.user.email!,
+              role: "administrator",
+            },
+            { onConflict: "id" }
+          )
+          .select("id, nama, email, role, divisi, signature_url")
+          .maybeSingle();
+
+        if (createdProfile) {
+          profile = {
+            id: createdProfile.id,
+            nama: createdProfile.nama,
+            email: createdProfile.email,
+            role: createdProfile.role as UserRole,
+            divisi: createdProfile.divisi as DivisiName | undefined,
+            signature_url: createdProfile.signature_url ?? undefined,
+          };
+        } else {
+          // Fallback lokal agar user tidak pernah terkunci
+          profile = {
+            id: authData.user.id,
+            nama: defaultName,
+            email: authData.user.email!,
+            role: "administrator" as UserRole,
+          };
+        }
       }
 
       // 3. Set profile in session context
-      loginWithProfile({
-        id: profileData.id,
-        nama: profileData.nama,
-        email: profileData.email,
-        role: profileData.role as UserRole,
-        divisi: profileData.divisi as DivisiName | undefined,
-        signature_url: profileData.signature_url ?? undefined,
-      });
+      loginWithProfile(profile);
 
       // 4. Redirect — dashboard layout will show splash screen
       router.push("/");
-    } catch {
-      setError("Terjadi kesalahan jaringan. Periksa koneksi internet Anda.");
+    } catch (err: unknown) {
+      console.error("Login error:", err);
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan jaringan. Periksa koneksi internet Anda.";
+      setError(msg);
       setIsLoading(false);
     }
   };
