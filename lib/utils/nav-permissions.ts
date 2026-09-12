@@ -1,0 +1,170 @@
+import { UserRole, DivisiName } from "../mock/store";
+
+export interface NavItemConfig {
+  label: string;
+  href: string;
+  badge?: string;
+  allowedRoles: UserRole[];
+  // If defined, user with ketua_divisi must match one of these divisions to see this menu
+  allowedDivisi?: DivisiName[];
+}
+
+export const ALL_NAV_ITEMS: NavItemConfig[] = [
+  {
+    label: "Dashboard",
+    href: "/",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "ketua_divisi",
+      "sekretaris",
+      "bendahara",
+      "div_kreatif",
+      "pj",
+      "anggota",
+    ],
+  },
+  {
+    label: "Produksi Dual-Gate",
+    href: "/produksi",
+    badge: "GATE",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "ketua_divisi",
+      "div_kreatif",
+      "pj",
+    ],
+  },
+  {
+    label: "Buku Kas Anggota",
+    href: "/kas",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "bendahara",
+      "sekretaris",
+    ],
+  },
+  {
+    label: "Absensi Mingguan",
+    href: "/absensi",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "sekretaris",
+      "bendahara",
+    ],
+  },
+  {
+    label: "Project Kanban",
+    href: "/project",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "ketua_divisi",
+      "div_kreatif",
+      "pj",
+      "sekretaris",
+      "anggota",
+    ],
+  },
+  {
+    label: "Notulen Rapat",
+    href: "/notulen",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "sekretaris",
+    ],
+  },
+  {
+    label: "Keuangan Pembina",
+    href: "/keuangan-pembina",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "bendahara",
+    ],
+  },
+  {
+    label: "Agenda Foto / Lomba",
+    href: "/agenda-foto",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "sekretaris",
+      "ketua_divisi",
+    ],
+    // Only Fotografer if role is ketua_divisi
+    allowedDivisi: ["Fotografer"],
+  },
+  {
+    label: "Inventaris Aset",
+    href: "/inventaris",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "sekretaris",
+      "pj",
+      "ketua_divisi",
+      "anggota",
+    ],
+    // Broadcasting can manage, but others can also see / borrow
+  },
+  {
+    label: "Data Anggota",
+    href: "/anggota",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "sekretaris",
+      "bendahara",
+    ],
+  },
+  {
+    label: "Laporan Semester",
+    href: "/laporan",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "sekretaris",
+      "bendahara",
+    ],
+  },
+];
+
+/**
+ * Filter menu items strictly according to user role and department
+ */
+export function isRouteAllowedForUser(
+  item: NavItemConfig,
+  role: UserRole,
+  divisi?: DivisiName
+): boolean {
+  if (role === "administrator") return true;
+
+  if (!item.allowedRoles.includes(role)) {
+    return false;
+  }
+
+  // Check division scope if restricted (e.g. Agenda Foto for ketua_divisi must be Fotografer)
+  if (role === "ketua_divisi" && item.allowedDivisi && item.allowedDivisi.length > 0) {
+    if (!divisi || !item.allowedDivisi.includes(divisi)) {
+      return false;
+    }
+  }
+
+  return true;
+}

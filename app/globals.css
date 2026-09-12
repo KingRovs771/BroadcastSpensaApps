@@ -1,0 +1,238 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* DARK STUDIO THEME (Default & Primary) — high-contrast pass v3.2.0 */
+  --bg-cosmic: #030712;
+  --bg-surface-1: #0B132B;
+  --bg-surface-2: #111C3B;
+  --bg-surface-3: #1E293B;
+
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --border-medium: rgba(255, 255, 255, 0.24);
+  --border-orbital: rgba(196, 181, 253, 0.45);
+
+  --text-primary: #FFFFFF; /* 20.1:1 */
+  --text-secondary: #CBD5E1; /* 13.6:1 */
+  --text-muted: #94A3B8; /* 7.9:1 — min 11px */
+  --text-inverse: #030712;
+
+  --font-brand: 'Cinzel', serif;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+}
+
+[data-theme="light"] {
+  --bg-cosmic: #F4F6FB;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #EDF2FA;
+  --bg-surface-3: #DDE7F6;
+
+  --border-subtle: rgba(11, 19, 43, 0.08);
+  --border-medium: rgba(11, 19, 43, 0.16);
+  --border-orbital: rgba(139, 61, 168, 0.25);
+
+  --text-primary: #0B132B;
+  --text-secondary: #475569;
+  --text-muted: #8092AA;
+  --text-inverse: #FFFFFF;
+}
+
+html {
+  width: 100%;
+  overflow-x: clip; /* clip (not hidden) preserves position:sticky */
+  scrollbar-gutter: stable;
+}
+
+body {
+  background-color: var(--bg-cosmic);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100dvw;
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Mobile overflow guards (360px baseline) ────────────────────── */
+/* Flex/grid children must be allowed to shrink below content size */
+.min-w-0-guard > *,
+.flex > *,
+.grid > * {
+  min-width: 0;
+}
+
+/* Long unbreakable strings: NIS, kode BRC-xxx, URLs, timestamps */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Scrollable table wrapper: page never scrolls sideways, table does */
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.table-scroll > table {
+  min-width: 560px; /* table scrolls inside, layout stays put */
+}
+
+/* Media never exceeds its container (icons excluded — lucide sizes via classes) */
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+svg {
+  flex-shrink: 0; /* icons never collapse inside flex rows */
+}
+
+/* Prevent iOS auto-zoom on focus (<16px inputs) which shifts layout */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Studio custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-surface-1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-orbital);
+}
+
+/* Touch targets for accessibility & PWA */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Spectrum Accent Glows */
+.glow-orbital {
+  box-shadow: 0 0 20px -3px rgba(178, 83, 184, 0.35);
+}
+
+.glow-jade {
+  box-shadow: 0 0 20px -3px rgba(44, 165, 121, 0.35);
+}
+
+.glow-amber {
+  box-shadow: 0 0 20px -3px rgba(245, 183, 56, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px -3px rgba(43, 158, 179, 0.35);
+}
+
+/* Pulse Animation for Gate 2 Amber State */
+@keyframes pulse-amber-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(245, 183, 56, 0.4);
+    border-color: #F5B738;
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(245, 183, 56, 0.8);
+    border-color: #F09A3E;
+  }
+}
+
+.animate-pulse-amber {
+  animation: pulse-amber-glow 2s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   PRINT ENGINE STYLES (Cetak / Unduh PDF Resmi)
+   Ensures clean A4 layout, resets dark theme to crisp white paper,
+   hides navigation chrome & buttons, and avoids clipping.
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 15mm 15mm 15mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide non-printable app shell elements */
+  aside,
+  header,
+  nav,
+  .print\:hidden,
+  button,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Reset main wrapper layouts to eliminate margins and sidebars */
+  main,
+  div[class*="min-h-screen"],
+  div[class*="overflow-y-auto"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Printable container styling */
+  .printable-document {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Avoid page breaks inside table rows, cards, and signatures */
+  table, tr, td, th, .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Table borders must stay crisp in black/slate */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  table, th, td {
+    border: 1px solid #cbd5e1 !important;
+  }
+}
