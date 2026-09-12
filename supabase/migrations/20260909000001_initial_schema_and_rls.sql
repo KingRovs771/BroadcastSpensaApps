@@ -298,8 +298,8 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE OR REPLACE RULE no_update_audit_log AS ON UPDATE TO public.audit_log DO INSTEAD NOTHING;
-CREATE OR REPLACE RULE no_delete_audit_log AS ON DELETE TO public.audit_log DO INSTEAD NOTHING;
+-- Append-only audit log protection is handled via RLS policy (no update / no delete policies defined)
+
 
 -- =====================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES

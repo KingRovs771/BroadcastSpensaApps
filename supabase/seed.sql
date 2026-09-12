@@ -3,6 +3,10 @@
 -- Master Seed Data (100% Public Schema Only)
 -- =====================================================================
 
+-- 0. PERBAIKAN SCHEMA STUDIO (Hapus rule lawas yang membuat Table Editor crash)
+DROP RULE IF EXISTS no_update_audit_log ON public.audit_log;
+DROP RULE IF EXISTS no_delete_audit_log ON public.audit_log;
+
 -- 1. MASTER DIVISI
 INSERT INTO public.divisi_ref (id, nama, deskripsi) VALUES
     ('11111111-1111-1111-1111-111111111101', 'Kreatif', 'Penyusunan naskah video, script liputan, dan outline podcast.'),
