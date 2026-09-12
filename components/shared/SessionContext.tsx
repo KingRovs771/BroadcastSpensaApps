@@ -68,6 +68,9 @@ interface SessionContextType {
   keuanganPembinaList: KeuanganPembinaItem[];
   setKeuanganPembinaList: React.Dispatch<React.SetStateAction<KeuanganPembinaItem[]>>;
 
+  pembinaList: UserProfile[];
+  setPembinaList: React.Dispatch<React.SetStateAction<UserProfile[]>>;
+
   auditLogs: AuditLogItem[];
   logAction: (action: string, targetTable: string, targetId?: string, details?: string) => void;
 }
@@ -84,6 +87,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // Data collections — empty by default for clean production use
   const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>([]);
+  const [pembinaList, setPembinaList] = useState<UserProfile[]>([]);
   const [produksiList, setProduksiList] = useState<ProduksiVideo[]>([]);
   const [kasSettings, setKasSettings] = useState<KasSettings>({
     nominal: 2000,
@@ -193,6 +197,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             timestamp: a.created_at,
           }))
         );
+      }
+
+      // 12. Dewan Pembina Profiles
+      const { data: pembinaData } = await supabase
+        .from("profiles")
+        .select("id, nama, email, role, divisi, signature_url")
+        .eq("role", "pembina");
+      if (pembinaData) {
+        setPembinaList(pembinaData as UserProfile[]);
       }
     } catch (err) {
       console.error("Failed to load Supabase data:", err);
@@ -366,6 +379,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setNotulenList,
         keuanganPembinaList,
         setKeuanganPembinaList,
+        pembinaList,
+        setPembinaList,
         auditLogs,
         logAction,
       }}

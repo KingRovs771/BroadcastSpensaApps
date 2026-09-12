@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { DualGateBanner } from "@/components/modules/produksi/DualGateBanner";
+import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
 import { formatIDR } from "@/lib/utils/currency";
 import { calculateKasSummary } from "@/lib/utils/kas-calc";
 import { getAcademicSemester } from "@/lib/utils/semester";
@@ -17,17 +18,23 @@ import {
   ArrowRight,
   Sparkles,
   FileCheck,
+  UserPlus,
+  GraduationCap,
+  Mail,
 } from "lucide-react";
 
 export default function PembinaDashboardPage() {
   const {
     currentUser,
+    pembinaList,
     produksiList,
     keuanganPembinaList,
     kasPembayaranList,
     absensiList,
     auditLogs,
   } = useSession();
+
+  const [isTambahPembinaOpen, setIsTambahPembinaOpen] = useState(false);
 
   const currentAcademic = getAcademicSemester(new Date());
   const kasSummary = calculateKasSummary(kasPembayaranList);
@@ -168,6 +175,73 @@ export default function PembinaDashboardPage() {
         )}
       </div>
 
+      {/* Dewan Pembina Management Section */}
+      <div className="bg-surface-1 border border-studio-border-subtle rounded-2xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-studio-border-subtle">
+          <div>
+            <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-orbital-magenta" />
+              Dewan Pembina Broadcast Spensa
+            </h3>
+            <p className="text-[11px] text-studio-text-secondary mt-0.5">
+              Guru pembina resmi dengan hak otoritas supervisi dan approval naskah Gate 1.
+            </p>
+          </div>
+          {(currentUser.role === "administrator" || currentUser.role === "pembina") && (
+            <button
+              onClick={() => setIsTambahPembinaOpen(true)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 flex items-center gap-2 self-start sm:self-auto min-h-[44px]"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ Tambah Pembina</span>
+            </button>
+          )}
+        </div>
+
+        {pembinaList.length === 0 ? (
+          <div className="text-center py-8 px-4 rounded-xl bg-surface-2/60 border border-studio-border-subtle border-dashed">
+            <div className="w-12 h-12 rounded-full bg-violet-500/10 text-violet-400 mx-auto flex items-center justify-center mb-2.5">
+              <GraduationCap className="w-6 h-6" />
+            </div>
+            <p className="text-xs font-semibold text-white">Belum Ada Dewan Pembina Terdaftar</p>
+            <p className="text-[11px] text-slate-400 max-w-sm mx-auto mt-1">
+              Klik tombol &quot;+ Tambah Pembina&quot; di atas untuk mendaftarkan guru pembina baru ke sistem.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pembinaList.map((p) => (
+              <div
+                key={p.id}
+                className="p-4 rounded-xl bg-surface-2 border border-studio-border-subtle hover:border-violet-500/40 transition-colors flex items-start gap-3 relative overflow-hidden group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600/30 to-pink-600/30 border border-violet-500/30 flex items-center justify-center text-violet-300 font-bold shrink-0">
+                  {p.nama.charAt(0).toUpperCase()}
+                </div>
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-white truncate block">
+                      {p.nama}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-orbital-violet/25 text-orbital-magenta border border-orbital-violet/40">
+                      PEMBINA
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-mono text-slate-400 truncate flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-slate-500 shrink-0" />
+                    {p.email}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Akses Aktif
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Audit Log Activity Stream */}
       <div className="bg-surface-1 border border-studio-border-subtle rounded-2xl p-5 space-y-3">
         <div className="flex items-center justify-between pb-3 border-b border-studio-border-subtle">
@@ -203,6 +277,12 @@ export default function PembinaDashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Modal Tambah Pembina */}
+      <TambahPembinaModal
+        isOpen={isTambahPembinaOpen}
+        onClose={() => setIsTambahPembinaOpen(false)}
+      />
     </div>
   );
 }

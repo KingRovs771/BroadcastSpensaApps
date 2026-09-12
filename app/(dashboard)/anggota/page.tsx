@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { AnggotaRecord, DivisiName } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
+import { createClient } from "@/lib/supabase/client";
+import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
 import {
   Users,
   Plus,
@@ -13,31 +15,65 @@ import {
   X,
   Phone,
   GraduationCap,
+  Mail,
+  Shield,
+  UserCheck,
+  CheckCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { createClient } from "@/lib/supabase/client";
+// ─── Pilihan Dropdown ──────────────────────────────────────────────────────────
+const TINGKAT_KELAS_OPTIONS = ["VII", "VIII", "IX"] as const;
+const ROMBEL_OPTIONS = [
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
+] as const;
+
+const JABATAN_ROLE_OPTIONS = [
+  "Anggota",
+  "Ketua Umum Broadcast",
+  "Wakil Ketua Broadcast",
+  "Ketua Divisi",
+  "Sekretaris 1",
+  "Sekretaris 2",
+  "Bendahara 1",
+  "Bendahara 2",
+  "Penanggung Jawab (PJ)",
+  "Staf Divisi Kreatif",
+  "Staf Teknis Studio",
+] as const;
 
 export default function AnggotaPage() {
   const supabase = createClient();
-  const { currentUser, anggotaList, setAnggotaList, logAction } = useSession();
+  const {
+    currentUser,
+    anggotaList,
+    setAnggotaList,
+    pembinaList,
+    logAction,
+  } = useSession();
 
-  const [activeTab, setActiveTab] = useState<"tetap" | "ekskul">("tetap");
+  const [activeTab, setActiveTab] = useState<"tetap" | "ekskul" | "pembina">("tetap");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPembinaModalOpen, setIsPembinaModalOpen] = useState(false);
 
-  // Form states
+  // Form states untuk Anggota
   const [namaLengkap, setNamaLengkap] = useState("");
   const [nis, setNis] = useState("");
   const [nisn, setNisn] = useState("");
-  const [kelas, setKelas] = useState("VIII-A");
-  const [jabatan, setJabatan] = useState("Anggota");
+  const [tingkatKelas, setTingkatKelas] = useState<"VII" | "VIII" | "IX">("VIII");
+  const [rombelKelas, setRombelKelas] = useState<string>("A");
+  const [jabatan, setJabatan] = useState<string>("Anggota");
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
   const [noHp, setNoHp] = useState("");
 
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
 
+  const isPembinaOrAdmin =
+    currentUser.role === "pembina" || currentUser.role === "administrator";
+
+  // Filter anggota berdasarkan tab & search
   const filteredMembers = anggotaList
     .filter((a) => a.tipe === activeTab)
     .filter((a) =>
@@ -46,17 +82,25 @@ export default function AnggotaPage() {
       a.kelas.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+  // Filter pembina
+  const filteredPembina = pembinaList.filter(
+    (p) =>
+      p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const selectedKelas = `${tingkatKelas}-${rombelKelas}`;
     const tempId = `ang-${Date.now()}`;
     const newAnggota: AnggotaRecord = {
       id: tempId,
-      tipe: activeTab,
+      tipe: activeTab as "tetap" | "ekskul",
       nama_lengkap: namaLengkap,
       nis,
       nisn: nisn || undefined,
-      kelas,
+      kelas: selectedKelas,
       jabatan,
       divisi: activeTab === "tetap" ? divisi : undefined,
       tahun_ajaran: "2026/2027",
@@ -69,7 +113,7 @@ export default function AnggotaPage() {
       "REGISTER_ANGGOTA",
       "anggota",
       newAnggota.id,
-      `Mendaftarkan ${activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}: ${namaLengkap} (${kelas})`
+      `Mendaftarkan ${activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}: ${namaLengkap} (${selectedKelas}) - ${jabatan}`
     );
 
     try {
@@ -80,7 +124,7 @@ export default function AnggotaPage() {
           nama_lengkap: namaLengkap,
           nis,
           nisn: nisn || null,
-          kelas,
+          kelas: selectedKelas,
           jabatan,
           divisi: activeTab === "tetap" ? divisi : null,
           tahun_ajaran: "2026/2027",
@@ -103,6 +147,9 @@ export default function AnggotaPage() {
     setNis("");
     setNisn("");
     setNoHp("");
+    setTingkatKelas("VIII");
+    setRombelKelas("A");
+    setJabatan("Anggota");
     setIsModalOpen(false);
   };
 
@@ -113,30 +160,44 @@ export default function AnggotaPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-spectrum-cyan" />
-            Buku Induk Anggota Broadcast Spensa
+            Buku Induk Anggota & Pembina Broadcast Spensa
           </h1>
           <p className="text-xs text-studio-text-secondary mt-1">
-            Manajemen direktori peserta ekstrakurikuler terbagi antara Anggota Tetap dan Ekskul.
+            Direktori resmi anggota ekstrakurikuler (Tetap &amp; Ekskul) serta Dewan Pembina SMPN 1 Spensa.
           </p>
         </div>
 
-        {isSekretarisOrAdmin && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            aria-label="Registrasi Anggota Baru"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah {activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2.5">
+          {activeTab === "pembina" ? (
+            isPembinaOrAdmin && (
+              <button
+                onClick={() => setIsPembinaModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Pembina</span>
+              </button>
+            )
+          ) : (
+            isSekretarisOrAdmin && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                aria-label="Registrasi Anggota Baru"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah {activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}</span>
+              </button>
+            )
+          )}
+        </div>
       </div>
 
-      {/* Tabs Segregation */}
-      <div className="flex items-center gap-4 border-b border-studio-border-subtle">
+      {/* Tabs Segregation (3 Tab: Tetap, Ekskul, Pembina) */}
+      <div className="flex items-center gap-2 sm:gap-4 border-b border-studio-border-subtle overflow-x-auto pb-px">
         <button
           onClick={() => setActiveTab("tetap")}
-          className={`flex items-center gap-2 pb-3 px-4 text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
             activeTab === "tetap"
               ? "text-spectrum-cyan border-b-2 border-spectrum-cyan font-extrabold shadow-cyan"
               : "text-studio-text-secondary hover:text-white"
@@ -151,7 +212,7 @@ export default function AnggotaPage() {
 
         <button
           onClick={() => setActiveTab("ekskul")}
-          className={`flex items-center gap-2 pb-3 px-4 text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
             activeTab === "ekskul"
               ? "text-orbital-magenta border-b-2 border-orbital-violet font-extrabold shadow-orbital"
               : "text-studio-text-secondary hover:text-white"
@@ -163,71 +224,182 @@ export default function AnggotaPage() {
             {anggotaList.filter((a) => a.tipe === "ekskul").length}
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveTab("pembina")}
+          className={`flex items-center gap-2 pb-3 px-3 sm:px-4 text-xs font-bold transition-all whitespace-nowrap ${
+            activeTab === "pembina"
+              ? "text-spectrum-amber border-b-2 border-spectrum-amber font-extrabold shadow-amber"
+              : "text-studio-text-secondary hover:text-white"
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" />
+          <span>Dewan Pembina</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-spectrum-amber/20 text-spectrum-amber border border-spectrum-amber/30">
+            {pembinaList.length}
+          </span>
+        </button>
       </div>
 
-      {/* Search Input */}
+      {/* Search Bar */}
       <div className="relative max-w-sm">
         <Search className="w-4 h-4 text-studio-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="text"
-          aria-label="Cari nama, NIS, atau kelas"
+          aria-label="Cari data"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cari nama, NIS, atau kelas siswa..."
+          placeholder={
+            activeTab === "pembina"
+              ? "Cari nama atau email pembina..."
+              : "Cari nama, NIS, atau kelas siswa..."
+          }
           className="w-full pl-9 pr-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
         />
       </div>
 
-      {/* Member Directory Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredMembers.map((ang) => (
-          <div
-            key={ang.id}
-            className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-2 text-white border border-studio-border-subtle">
-                NIS: {ang.nis}
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-spectrum-jade/15 text-spectrum-jade border border-spectrum-jade/30">
-                {ang.status.toUpperCase()}
-              </span>
+      {/* ── Content: Dewan Pembina View ────────────────────────────────────────── */}
+      {activeTab === "pembina" ? (
+        filteredPembina.length === 0 ? (
+          <div className="text-center py-12 px-4 rounded-2xl bg-surface-1 border border-studio-border-subtle border-dashed">
+            <div className="w-14 h-14 rounded-2xl bg-violet-600/15 border border-violet-500/20 text-violet-400 mx-auto flex items-center justify-center mb-3">
+              <GraduationCap className="w-7 h-7" />
             </div>
-
-            <div>
-              <h3 className="text-sm font-bold text-white leading-snug">
-                {ang.nama_lengkap}
-              </h3>
-              <p className="text-xs text-studio-text-secondary mt-0.5 font-mono">
-                Kelas {ang.kelas} · TA {ang.tahun_ajaran}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-1 text-xs">
-              <div className="flex justify-between text-studio-text-secondary">
-                <span>Jabatan:</span>
-                <strong className="text-white">{ang.jabatan}</strong>
-              </div>
-              {ang.divisi && (
-                <div className="flex justify-between text-studio-text-secondary">
-                  <span>Divisi:</span>
-                  <span className="text-spectrum-cyan font-semibold">{ang.divisi}</span>
-                </div>
-              )}
-              {ang.no_hp && (
-                <div className="flex justify-between text-studio-text-secondary pt-1 border-t border-studio-border-subtle">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3 h-3" /> WhatsApp:
-                  </span>
-                  <span className="font-mono text-white">{ang.no_hp}</span>
-                </div>
-              )}
-            </div>
+            <h3 className="text-sm font-bold text-white">Belum Ada Dewan Pembina Terdaftar</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+              Tambahkan guru pembina ekstrakurikuler untuk memberikan hak supervisi dan pengesahan naskah.
+            </p>
+            {isPembinaOrAdmin && (
+              <button
+                onClick={() => setIsPembinaModalOpen(true)}
+                className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg inline-flex items-center gap-2 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Pembina Baru</span>
+              </button>
+            )}
           </div>
-        ))}
-      </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredPembina.map((pem) => (
+              <div
+                key={pem.id}
+                className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-violet-500/40 transition-all space-y-3 relative group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-orbital-violet/20 text-orbital-magenta border border-orbital-violet/35">
+                    DEWAN PEMBINA
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    AKTIF
+                  </span>
+                </div>
 
-      {/* Modal Tambah Anggota */}
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-600/30 to-pink-600/30 border border-violet-500/30 flex items-center justify-center text-violet-300 font-bold text-base shrink-0">
+                    {pem.nama.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-white leading-snug truncate">
+                      {pem.nama}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 truncate">
+                      <Mail className="w-3 h-3 text-slate-500 shrink-0" />
+                      {pem.email}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle text-xs space-y-1 text-slate-300">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Otoritas:</span>
+                    <span className="text-white font-semibold">Supervisi &amp; Approval Gate 1</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Status Akses:</span>
+                    <span className="text-spectrum-cyan font-mono">Monitoring Center</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        /* ── Content: Anggota Tetap / Ekskul Grid ────────────────────────────── */
+        filteredMembers.length === 0 ? (
+          <div className="text-center py-12 px-4 rounded-2xl bg-surface-1 border border-studio-border-subtle border-dashed">
+            <div className="w-14 h-14 rounded-2xl bg-surface-2 border border-studio-border-subtle text-slate-500 mx-auto flex items-center justify-center mb-3">
+              <Users className="w-7 h-7" />
+            </div>
+            <h3 className="text-sm font-bold text-white">
+              Belum Ada Data {activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}
+            </h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+              Daftarkan siswa baru ke direktori buku induk melalui tombol di bawah ini.
+            </p>
+            {isSekretarisOrAdmin && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-4 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan inline-flex items-center gap-2 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah {activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMembers.map((ang) => (
+              <div
+                key={ang.id}
+                className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-2 text-white border border-studio-border-subtle">
+                    NIS: {ang.nis}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-spectrum-jade/15 text-spectrum-jade border border-spectrum-jade/30">
+                    {ang.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-white leading-snug">
+                    {ang.nama_lengkap}
+                  </h3>
+                  <p className="text-xs text-studio-text-secondary mt-0.5 font-mono">
+                    Kelas {ang.kelas} · TA {ang.tahun_ajaran}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-1 text-xs">
+                  <div className="flex justify-between text-studio-text-secondary">
+                    <span>Jabatan:</span>
+                    <strong className="text-white">{ang.jabatan}</strong>
+                  </div>
+                  {ang.divisi && (
+                    <div className="flex justify-between text-studio-text-secondary">
+                      <span>Divisi:</span>
+                      <span className="text-spectrum-cyan font-semibold">{ang.divisi}</span>
+                    </div>
+                  )}
+                  {ang.no_hp && (
+                    <div className="flex justify-between text-studio-text-secondary pt-1 border-t border-studio-border-subtle">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" /> WhatsApp:
+                      </span>
+                      <span className="font-mono text-white">{ang.no_hp}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* ── Modal Tambah Anggota ─────────────────────────────────────────────── */}
       <AnimatePresence>
         {isModalOpen && (
           <div
@@ -257,121 +429,174 @@ export default function AnggotaPage() {
                 </h3>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1.5 rounded-lg text-studio-text-secondary hover:text-white"
+                  className="p-1.5 rounded-lg text-studio-text-secondary hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-            <form onSubmit={handleCreate} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-white mb-1">
-                  Nama Lengkap Siswa *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={namaLengkap}
-                  onChange={(e) => setNamaLengkap(e.target.value)}
-                  placeholder="Contoh: Muhammad Farhan"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleCreate} className="mt-4 space-y-4">
+                {/* Nama Lengkap */}
                 <div>
                   <label className="block text-xs font-semibold text-white mb-1">
-                    Nomor Induk Siswa (NIS) *
+                    Nama Lengkap Siswa *
                   </label>
                   <input
                     type="text"
                     required
-                    value={nis}
-                    onChange={(e) => setNis(e.target.value)}
-                    placeholder="89401"
-                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs font-mono text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-white mb-1">
-                    Kelas *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={kelas}
-                    onChange={(e) => setKelas(e.target.value)}
-                    placeholder="VII-C / VIII-A"
+                    value={namaLengkap}
+                    onChange={(e) => setNamaLengkap(e.target.value)}
+                    placeholder="Contoh: Muhammad Farhan"
                     className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-white mb-1">
-                    Jabatan Struktural
-                  </label>
-                  <input
-                    type="text"
-                    value={jabatan}
-                    onChange={(e) => setJabatan(e.target.value)}
-                    placeholder="Anggota / Staf Divisi"
-                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-                  />
+                {/* NIS & Dropdown Kelas (Tingkat + Rombel) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-white mb-1">
+                      Nomor Induk Siswa (NIS) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={nis}
+                      onChange={(e) => setNis(e.target.value)}
+                      placeholder="89401"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs font-mono text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-white mb-1">
+                      Kelas (Tingkat &amp; Rombel) *
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        aria-label="Tingkat Kelas"
+                        value={tingkatKelas}
+                        onChange={(e) => setTingkatKelas(e.target.value as "VII" | "VIII" | "IX")}
+                        className="w-full px-2.5 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                      >
+                        {TINGKAT_KELAS_OPTIONS.map((t) => (
+                          <option key={t} value={t} className="bg-surface-2 text-white">
+                            Kelas {t}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        aria-label="Ruang Rombel"
+                        value={rombelKelas}
+                        onChange={(e) => setRombelKelas(e.target.value)}
+                        className="w-full px-2.5 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                      >
+                        {ROMBEL_OPTIONS.map((r) => (
+                          <option key={r} value={r} className="bg-surface-2 text-white">
+                            Ruang {r}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-[10px] font-mono text-slate-400 mt-1">
+                      Pilihan: <span className="text-spectrum-cyan font-bold">{tingkatKelas}-{rombelKelas}</span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-white mb-1">
-                    Divisi Penempatan
-                  </label>
-                  <select
-                    value={divisi}
-                    onChange={(e) => setDivisi(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+
+                {/* Jabatan Struktural Dropdown (Sesuai Role) & Divisi */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-white mb-1">
+                      Jabatan Struktural (Sesuai Role) *
+                    </label>
+                    <select
+                      value={jabatan}
+                      onChange={(e) => setJabatan(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                    >
+                      {JABATAN_ROLE_OPTIONS.map((j) => (
+                        <option key={j} value={j} className="bg-surface-2 text-white">
+                          {j}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {activeTab === "tetap" && (
+                    <div>
+                      <label className="block text-xs font-semibold text-white mb-1">
+                        Peminatan Divisi *
+                      </label>
+                      <select
+                        value={divisi}
+                        onChange={(e) => setDivisi(e.target.value as DivisiName)}
+                        className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                      >
+                        {DIVISI_OPTIONS.map((d) => (
+                          <option key={d} value={d} className="bg-surface-2 text-white">
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* NISN & No WhatsApp */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-white mb-1">
+                      NISN (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      value={nisn}
+                      onChange={(e) => setNisn(e.target.value)}
+                      placeholder="0081234567"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs font-mono text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-white mb-1">
+                      No. WhatsApp / HP
+                    </label>
+                    <input
+                      type="text"
+                      value={noHp}
+                      onChange={(e) => setNoHp(e.target.value)}
+                      placeholder="08123456789"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs font-mono text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-studio-border-subtle">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold text-studio-text-secondary hover:text-white transition-colors min-h-[44px]"
                   >
-                    {DIVISI_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-lg bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
+                  >
+                    Simpan Anggota
+                  </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-white mb-1">
-                  Nomor WhatsApp (Opsional)
-                </label>
-                <input
-                  type="text"
-                  value={noHp}
-                  onChange={(e) => setNoHp(e.target.value)}
-                  placeholder="08123456789"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs font-mono text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-studio-border-subtle">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-studio-text-secondary hover:text-white rounded-lg min-h-[44px]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold text-ink bg-spectrum-cobalt hover:bg-sky-400 rounded-lg transition-all shadow-cyan min-h-[44px]"
-                >
-                  Daftarkan Anggota
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+              </form>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
+
+      {/* ── Modal Tambah Pembina ─────────────────────────────────────────────── */}
+      <TambahPembinaModal
+        isOpen={isPembinaModalOpen}
+        onClose={() => setIsPembinaModalOpen(false)}
+      />
     </div>
   );
 }
-
