@@ -203,11 +203,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      // 12. Dewan Pembina Profiles
+      // 12. Dewan Pembina & Administrator Profiles
       const { data: pembinaData } = await supabase
         .from("profiles")
         .select("id, nama, email, role, divisi, signature_url")
-        .eq("role", "pembina");
+        .in("role", ["pembina", "administrator"]);
       if (pembinaData) {
         setPembinaList(pembinaData as UserProfile[]);
       }

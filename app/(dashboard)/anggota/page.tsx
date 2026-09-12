@@ -474,8 +474,12 @@ export default function AnggotaPage() {
                 className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-violet-500/40 transition-all space-y-3 relative group"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-orbital-violet/20 text-orbital-magenta border border-orbital-violet/35">
-                    DEWAN PEMBINA
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    pem.role === "administrator"
+                      ? "bg-rose-500/20 text-rose-400 border-rose-500/35"
+                      : "bg-orbital-violet/20 text-orbital-magenta border-orbital-violet/35"
+                  }`}>
+                    {pem.role === "administrator" ? "ADMINISTRATOR / PENGAWAS" : "DEWAN PEMBINA"}
                   </span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
