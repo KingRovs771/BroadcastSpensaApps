@@ -4,6 +4,10 @@ import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { DualGateBanner } from "@/components/modules/produksi/DualGateBanner";
 import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
+import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailModal";
+import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
+import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
+import { AnggotaRecord } from "@/lib/mock/store";
 import { formatIDR } from "@/lib/utils/currency";
 import { calculateKasSummary } from "@/lib/utils/kas-calc";
 import { getAcademicSemester } from "@/lib/utils/semester";
@@ -21,6 +25,14 @@ import {
   UserPlus,
   GraduationCap,
   Mail,
+  Users,
+  Eye,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+  Phone,
+  Plus,
 } from "lucide-react";
 
 export default function PembinaDashboardPage() {
@@ -28,6 +40,7 @@ export default function PembinaDashboardPage() {
     currentUser,
     pembinaList,
     allUsers,
+    anggotaList,
     produksiList,
     keuanganPembinaList,
     kasPembayaranList,
@@ -35,11 +48,30 @@ export default function PembinaDashboardPage() {
     auditLogs,
   } = useSession();
 
-  const [activeUserSection, setActiveUserSection] = useState<"pembina" | "users">("pembina");
+  const [activeUserSection, setActiveUserSection] = useState<"pembina" | "users" | "anggota">("pembina");
   const [isTambahPembinaOpen, setIsTambahPembinaOpen] = useState(false);
+  const [anggotaSearchQuery, setAnggotaSearchQuery] = useState("");
+  const [anggotaTipeFilter, setAnggotaTipeFilter] = useState<"all" | "tetap" | "ekskul">("all");
+
+  const [selectedDetailAnggota, setSelectedDetailAnggota] = useState<AnggotaRecord | null>(null);
+  const [selectedEditAnggota, setSelectedEditAnggota] = useState<AnggotaRecord | null>(null);
+  const [selectedDeleteAnggota, setSelectedDeleteAnggota] = useState<AnggotaRecord | null>(null);
 
   const currentAcademic = getAcademicSemester(new Date());
   const kasSummary = calculateKasSummary(kasPembayaranList);
+
+  const filteredAnggotaList = anggotaList
+    .filter((a) => {
+      if (anggotaTipeFilter === "all") return true;
+      return a.tipe === anggotaTipeFilter;
+    })
+    .filter(
+      (a) =>
+        a.nama_lengkap.toLowerCase().includes(anggotaSearchQuery.toLowerCase()) ||
+        a.nis.includes(anggotaSearchQuery) ||
+        a.kelas.toLowerCase().includes(anggotaSearchQuery.toLowerCase()) ||
+        a.jabatan.toLowerCase().includes(anggotaSearchQuery.toLowerCase())
+    );
 
   // Pembina pending dual-gate items
   const pendingPembinaList = produksiList.filter(
@@ -200,11 +232,11 @@ export default function PembinaDashboardPage() {
           )}
         </div>
 
-        {/* Sub-tab selection: Dewan Pembina vs Semua Pengguna */}
-        <div className="flex items-center gap-2 border-b border-studio-border-subtle pb-3">
+        {/* Sub-tab selection: Dewan Pembina vs Semua Pengguna vs Anggota Ekstrakurikuler */}
+        <div className="flex items-center gap-2 border-b border-studio-border-subtle pb-3 overflow-x-auto">
           <button
             onClick={() => setActiveUserSection("pembina")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeUserSection === "pembina"
                 ? "bg-orbital-violet/20 text-orbital-magenta border border-orbital-violet/40"
                 : "text-studio-text-secondary hover:text-white"
@@ -215,14 +247,25 @@ export default function PembinaDashboardPage() {
           </button>
           <button
             onClick={() => setActiveUserSection("users")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeUserSection === "users"
                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
                 : "text-studio-text-secondary hover:text-white"
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Semua Pengguna Terdaftar ({(allUsers || []).length})</span>
+            <span>Semua Akun Pengguna ({(allUsers || []).length})</span>
+          </button>
+          <button
+            onClick={() => setActiveUserSection("anggota")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeUserSection === "anggota"
+                ? "bg-spectrum-cyan/20 text-spectrum-cyan border border-spectrum-cyan/40 font-bold"
+                : "text-studio-text-secondary hover:text-white"
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Buku Induk Anggota ({anggotaList.length})</span>
           </button>
         </div>
 
@@ -282,7 +325,7 @@ export default function PembinaDashboardPage() {
               })}
             </div>
           )
-        ) : (
+        ) : activeUserSection === "users" ? (
           /* ── Content: Semua Pengguna Terdaftar (Users) View ── */
           (allUsers || []).length === 0 ? (
             <div className="text-center py-8 px-4 rounded-xl bg-surface-2/60 border border-studio-border-subtle border-dashed">
@@ -349,6 +392,134 @@ export default function PembinaDashboardPage() {
               </div>
             </div>
           )
+        ) : (
+          /* ── Content: Buku Induk Anggota (CRUD Pembina & Administrator) ── */
+          <div className="space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 flex-1 max-w-md">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={anggotaSearchQuery}
+                    onChange={(e) => setAnggotaSearchQuery(e.target.value)}
+                    placeholder="Cari siswa, NIS, kelas, atau jabatan..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface-2 border border-studio-border-subtle text-xs text-white placeholder:text-slate-500 focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
+                  />
+                </div>
+
+                <select
+                  value={anggotaTipeFilter}
+                  onChange={(e) => setAnggotaTipeFilter(e.target.value as "all" | "tetap" | "ekskul")}
+                  className="px-2.5 py-2 rounded-xl bg-surface-2 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[40px]"
+                >
+                  <option value="all" className="bg-surface-2">Semua Tipe</option>
+                  <option value="tetap" className="bg-surface-2">Anggota Tetap</option>
+                  <option value="ekskul" className="bg-surface-2">Anggota Ekskul</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsTambahPembinaOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan flex items-center gap-1.5 min-h-[40px]"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah Siswa / Akun</span>
+                </button>
+                <Link
+                  href="/anggota"
+                  className="px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white text-xs font-semibold border border-studio-border-subtle flex items-center gap-1.5 transition-all min-h-[40px]"
+                >
+                  <span>Buku Induk Lengkap</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {filteredAnggotaList.length === 0 ? (
+              <div className="text-center py-8 px-4 rounded-xl bg-surface-2/60 border border-studio-border-subtle border-dashed">
+                <p className="text-xs font-semibold text-white">Tidak ada data anggota yang sesuai pencarian</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredAnggotaList.map((ang) => (
+                  <div
+                    key={ang.id}
+                    className="p-4 rounded-xl bg-surface-2 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-1 text-white border border-studio-border-subtle">
+                        NIS: {ang.nis}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`px-2 py-0.2 rounded text-[9px] font-mono font-bold uppercase ${
+                            ang.tipe === "tetap"
+                              ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"
+                              : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                          }`}
+                        >
+                          {ang.tipe}
+                        </span>
+                        <span
+                          className={`px-2 py-0.2 rounded-full text-[9px] font-mono font-bold uppercase border ${
+                            ang.status === "aktif"
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                          }`}
+                        >
+                          {ang.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-white truncate">{ang.nama_lengkap}</h4>
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        Kelas {ang.kelas} · {ang.jabatan}
+                      </p>
+                      {ang.divisi && (
+                        <p className="text-[10px] text-spectrum-cyan font-mono mt-0.5">
+                          Divisi {ang.divisi}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Action buttons for Pembina & Administrator CRUD */}
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-studio-border-subtle">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDetailAnggota(ang)}
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-1 hover:bg-surface-3 text-slate-200 hover:text-white text-[11px] font-semibold flex items-center justify-center gap-1 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[34px]"
+                      >
+                        <Eye className="w-3 h-3 text-spectrum-cyan" />
+                        <span>Detail</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEditAnggota(ang)}
+                        title="Edit Data Anggota"
+                        className="p-1.5 rounded-lg bg-surface-1 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-studio-border-medium min-h-[34px] min-w-[34px] flex items-center justify-center"
+                      >
+                        <Edit className="w-3 h-3 text-spectrum-cyan" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDeleteAnggota(ang)}
+                        title="Hapus Anggota"
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[34px] min-w-[34px] flex items-center justify-center"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -392,6 +563,29 @@ export default function PembinaDashboardPage() {
       <TambahPembinaModal
         isOpen={isTambahPembinaOpen}
         onClose={() => setIsTambahPembinaOpen(false)}
+      />
+
+      {/* Modal Detail Anggota */}
+      <AnggotaDetailModal
+        isOpen={!!selectedDetailAnggota}
+        onClose={() => setSelectedDetailAnggota(null)}
+        anggota={selectedDetailAnggota}
+        onEdit={(ang) => setSelectedEditAnggota(ang)}
+        onDelete={(ang) => setSelectedDeleteAnggota(ang)}
+      />
+
+      {/* Modal Edit Anggota */}
+      <EditAnggotaModal
+        isOpen={!!selectedEditAnggota}
+        onClose={() => setSelectedEditAnggota(null)}
+        anggota={selectedEditAnggota}
+      />
+
+      {/* Modal Hapus Anggota */}
+      <HapusAnggotaModal
+        isOpen={!!selectedDeleteAnggota}
+        onClose={() => setSelectedDeleteAnggota(null)}
+        anggota={selectedDeleteAnggota}
       />
     </div>
   );

@@ -6,6 +6,9 @@ import { AnggotaRecord, DivisiName } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
 import { createClient } from "@/lib/supabase/client";
 import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
+import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailModal";
+import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
+import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
 import { exportAnggotaToCSV } from "@/lib/utils/excel";
 import {
   Users,
@@ -21,6 +24,9 @@ import {
   UserCheck,
   CheckCircle,
   Download,
+  Eye,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -70,11 +76,27 @@ export default function AnggotaPage() {
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
   const [noHp, setNoHp] = useState("");
 
+  // Popup CRUD & Detail states
+  const [selectedDetailAnggota, setSelectedDetailAnggota] = useState<AnggotaRecord | null>(null);
+  const [selectedEditAnggota, setSelectedEditAnggota] = useState<AnggotaRecord | null>(null);
+  const [selectedDeleteAnggota, setSelectedDeleteAnggota] = useState<AnggotaRecord | null>(null);
+
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
 
   const isPembinaOrAdmin =
     currentUser.role === "pembina" || currentUser.role === "administrator";
+
+  // Hak Akses Spesifik
+  const canCreateAnggota = isPembinaOrAdmin || isSekretarisOrAdmin;
+  const canViewDetail =
+    isPembinaOrAdmin ||
+    currentUser.role === "ketua_broadcast" ||
+    currentUser.role === "ketua_divisi" ||
+    currentUser.role === "sekretaris" ||
+    currentUser.role === "bendahara";
+  const canEditAnggota = isPembinaOrAdmin || currentUser.role === "sekretaris";
+  const canDeleteAnggota = isPembinaOrAdmin;
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -257,7 +279,7 @@ export default function AnggotaPage() {
               </button>
             )
           ) : (
-            isSekretarisOrAdmin && (
+            canCreateAnggota && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 aria-label="Registrasi Anggota Baru"
@@ -547,7 +569,7 @@ export default function AnggotaPage() {
             <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
               Daftarkan siswa baru ke direktori buku induk melalui tombol di bawah ini.
             </p>
-            {isSekretarisOrAdmin && (
+            {canCreateAnggota && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="mt-4 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan inline-flex items-center gap-2 min-h-[44px]"
@@ -618,6 +640,42 @@ export default function AnggotaPage() {
                       </span>
                       <span className="font-mono text-white">{ang.no_hp}</span>
                     </div>
+                  )}
+                </div>
+
+                {/* Baris Aksi: Detail (Ketua, Sekretaris, Bendahara, Pembina, Admin), Edit & Hapus (Pembina, Admin, Sekretaris) */}
+                <div className="flex items-center gap-2 pt-2 border-t border-studio-border-subtle">
+                  {canViewDetail && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailAnggota(ang)}
+                      className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[38px]"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-spectrum-cyan" />
+                      <span>Lihat Detail</span>
+                    </button>
+                  )}
+
+                  {canEditAnggota && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEditAnggota(ang)}
+                      title="Edit Data Siswa"
+                      className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-studio-border-medium min-h-[38px] min-w-[38px] flex items-center justify-center"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-spectrum-cyan" />
+                    </button>
+                  )}
+
+                  {canDeleteAnggota && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDeleteAnggota(ang)}
+                      title="Hapus Data Siswa"
+                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[38px] min-w-[38px] flex items-center justify-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -824,6 +882,29 @@ export default function AnggotaPage() {
       <TambahPembinaModal
         isOpen={isPembinaModalOpen}
         onClose={() => setIsPembinaModalOpen(false)}
+      />
+
+      {/* ── Modal Detail Anggota (Ketua, Sekretaris, Bendahara, Pembina, Admin) ── */}
+      <AnggotaDetailModal
+        isOpen={!!selectedDetailAnggota}
+        onClose={() => setSelectedDetailAnggota(null)}
+        anggota={selectedDetailAnggota}
+        onEdit={(ang) => setSelectedEditAnggota(ang)}
+        onDelete={(ang) => setSelectedDeleteAnggota(ang)}
+      />
+
+      {/* ── Modal Edit Anggota (Pembina, Admin, Sekretaris) ─────────────────── */}
+      <EditAnggotaModal
+        isOpen={!!selectedEditAnggota}
+        onClose={() => setSelectedEditAnggota(null)}
+        anggota={selectedEditAnggota}
+      />
+
+      {/* ── Modal Hapus Anggota (Pembina & Admin) ────────────────────────────── */}
+      <HapusAnggotaModal
+        isOpen={!!selectedDeleteAnggota}
+        onClose={() => setSelectedDeleteAnggota(null)}
+        anggota={selectedDeleteAnggota}
       />
     </div>
   );
