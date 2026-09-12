@@ -324,6 +324,7 @@ ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 -- 1. Profiles RLS
 CREATE POLICY "Profiles viewable by authenticated users" ON public.profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Profiles updatable by self or admin" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id OR public.get_current_role() = 'administrator');
+CREATE POLICY "Profiles insertable by authenticated" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
 
 -- 2. Anggota RLS
 CREATE POLICY "Anggota viewable by authenticated" ON public.anggota FOR SELECT TO authenticated USING (true);
