@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Broadcast Spensa OS v3.0.0
--- Master Seed & Initial Admin Setup (100% Standard SQL)
+-- Master Seed Data (100% Public Schema Only)
 -- =====================================================================
 
 -- 1. MASTER DIVISI
@@ -19,21 +19,9 @@ INSERT INTO public.kas_settings (nominal, periode_type, effective_from) VALUES
     (2000, 'mingguan', CURRENT_DATE)
 ON CONFLICT DO NOTHING;
 
--- 3. PERMISSION INSERT PROFILE (Supaya user login bisa auto-create profil)
+-- 3. PERMISSION INSERT PROFILE (Supaya user login bisa auto-create profil tanpa ditolak RLS)
 DROP POLICY IF EXISTS "Profiles insertable by authenticated" ON public.profiles;
 CREATE POLICY "Profiles insertable by authenticated" 
 ON public.profiles FOR INSERT 
 TO authenticated 
 WITH CHECK (auth.uid() = id);
-
--- 4. SINKRONISASI SEMUA USER DI AUTH KE PROFILES SEBAGAI ADMINISTRATOR
-INSERT INTO public.profiles (id, nama, email, role, divisi)
-SELECT 
-    id,
-    COALESCE(raw_user_meta_data->>'nama', split_part(email, '@', 1), 'Administrator'),
-    email,
-    'administrator',
-    NULL
-FROM auth.users
-ON CONFLICT (id) DO UPDATE 
-SET role = 'administrator';
