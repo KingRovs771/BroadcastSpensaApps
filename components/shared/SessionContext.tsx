@@ -71,6 +71,9 @@ interface SessionContextType {
   pembinaList: UserProfile[];
   setPembinaList: React.Dispatch<React.SetStateAction<UserProfile[]>>;
 
+  allUsers: UserProfile[];
+  setAllUsers: React.Dispatch<React.SetStateAction<UserProfile[]>>;
+
   auditLogs: AuditLogItem[];
   logAction: (action: string, targetTable: string, targetId?: string, details?: string) => void;
 }
@@ -88,6 +91,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Data collections — empty by default for clean production use
   const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>([]);
   const [pembinaList, setPembinaList] = useState<UserProfile[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [produksiList, setProduksiList] = useState<ProduksiVideo[]>([]);
   const [kasSettings, setKasSettings] = useState<KasSettings>({
     nominal: 2000,
@@ -206,6 +210,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .eq("role", "pembina");
       if (pembinaData) {
         setPembinaList(pembinaData as UserProfile[]);
+      }
+
+      // 13. Semua Pengguna (All Users in Database)
+      const { data: allProfilesData } = await supabase
+        .from("profiles")
+        .select("id, nama, email, role, divisi, signature_url")
+        .order("created_at", { ascending: false });
+      if (allProfilesData) {
+        setAllUsers(allProfilesData as UserProfile[]);
       }
     } catch (err) {
       console.error("Failed to load Supabase data:", err);
@@ -381,6 +394,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setKeuanganPembinaList,
         pembinaList,
         setPembinaList,
+        allUsers,
+        setAllUsers,
         auditLogs,
         logAction,
       }}
