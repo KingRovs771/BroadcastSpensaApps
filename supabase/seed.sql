@@ -1,13 +1,25 @@
 -- =====================================================================
 -- Broadcast Spensa OS v3.0.0
--- Master Seed Data (100% Public Schema Only)
+-- PERBAIKAN PERMISSION SCHEMA PUBLIC & MASTER SEED
 -- =====================================================================
 
--- 0. PERBAIKAN SCHEMA STUDIO (Hapus rule lawas yang membuat Table Editor crash)
+-- 1. KEMBALIKAN PERMISSION SCHEMA PUBLIC (Mengatasi Query Database Schema Error)
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON SCHEMA public TO postgres;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role, postgres;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role, postgres;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role, postgres;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role, postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role, postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role, postgres;
+
+-- 2. HAPUS RULE LAWAS JIKA ADA
 DROP RULE IF EXISTS no_update_audit_log ON public.audit_log;
 DROP RULE IF EXISTS no_delete_audit_log ON public.audit_log;
 
--- 1. MASTER DIVISI
+-- 3. MASTER DIVISI
 INSERT INTO public.divisi_ref (id, nama, deskripsi) VALUES
     ('11111111-1111-1111-1111-111111111101', 'Kreatif', 'Penyusunan naskah video, script liputan, dan outline podcast.'),
     ('11111111-1111-1111-1111-111111111102', 'Presenter', 'Host podcast, pembawa acara live streaming, dan talent kamera.'),
@@ -18,14 +30,17 @@ INSERT INTO public.divisi_ref (id, nama, deskripsi) VALUES
     ('11111111-1111-1111-1111-111111111107', 'Promosi Digital', 'Distribusi konten, publikasi medsos, dan analitik performa views.')
 ON CONFLICT (nama) DO NOTHING;
 
--- 2. INITIAL KAS SETTINGS
+-- 4. INITIAL KAS SETTINGS
 INSERT INTO public.kas_settings (nominal, periode_type, effective_from) VALUES
     (2000, 'mingguan', CURRENT_DATE)
 ON CONFLICT DO NOTHING;
 
--- 3. PERMISSION INSERT PROFILE (Supaya user login bisa auto-create profil tanpa ditolak RLS)
+-- 5. PERMISSION INSERT PROFILE (Agar user login bisa auto-create profil)
 DROP POLICY IF EXISTS "Profiles insertable by authenticated" ON public.profiles;
 CREATE POLICY "Profiles insertable by authenticated" 
 ON public.profiles FOR INSERT 
 TO authenticated 
 WITH CHECK (auth.uid() = id);
+
+-- 6. RELOAD SCHEMA CACHE
+NOTIFY pgrst, 'reload schema';
