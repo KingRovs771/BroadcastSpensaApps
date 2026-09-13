@@ -111,14 +111,54 @@ export default function LoginPage() {
         password,
       });
 
-      if (authError || !authData.user) {
-        if (authError?.message.includes("Invalid login")) {
+      let currentAuthUser = authData?.user;
+
+      if (authError || !currentAuthUser) {
+        if (authError?.message.includes("Email not confirmed")) {
+          // Hilangkan verifikasi email: Auto-confirm user seketika via API lalu auto-login
+          try {
+            const confirmRes = await fetch("/api/auth/confirm-user", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: email.trim().toLowerCase() }),
+            });
+
+            if (confirmRes.ok) {
+              const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+                email: email.trim().toLowerCase(),
+                password,
+              });
+
+              if (!retryError && retryData?.user) {
+                currentAuthUser = retryData.user;
+              } else {
+                setError(retryError?.message ?? "Akun telah dikonfirmasi. Silakan klik Masuk sekali lagi.");
+                setIsLoading(false);
+                return;
+              }
+            } else {
+              setError("Email belum diverifikasi di sistem.");
+              setIsLoading(false);
+              return;
+            }
+          } catch {
+            setError("Gagal memproses aktivasi akun otomatis.");
+            setIsLoading(false);
+            return;
+          }
+        } else if (authError?.message.includes("Invalid login")) {
           setError("Email atau kata sandi salah. Silakan coba lagi.");
-        } else if (authError?.message.includes("Email not confirmed")) {
-          setError("Email belum diverifikasi. Periksa kotak masuk email Anda.");
+          setIsLoading(false);
+          return;
         } else {
           setError(authError?.message ?? "Login gagal. Coba lagi.");
+          setIsLoading(false);
+          return;
         }
+      }
+
+      if (!currentAuthUser) {
+        setError("Sesi pengguna tidak valid.");
         setIsLoading(false);
         return;
       }
@@ -136,7 +176,7 @@ export default function LoginPage() {
       const { data: profileData } = await supabase
         .from("profiles")
         .select("id, nama, email, role, divisi, signature_url")
-        .eq("id", authData.user.id)
+        .eq("id", currentAuthUser.id)
         .maybeSingle();
 
       if (profileData) {
@@ -151,17 +191,17 @@ export default function LoginPage() {
       } else {
         // Auto-provision profile jika baris belum dibuat di database
         const defaultName =
-          (authData.user.user_metadata?.nama as string | undefined) ||
-          authData.user.email?.split("@")[0] ||
+          (currentAuthUser.user_metadata?.nama as string | undefined) ||
+          currentAuthUser.email?.split("@")[0] ||
           "Administrator";
 
         const { data: createdProfile } = await supabase
           .from("profiles")
           .upsert(
             {
-              id: authData.user.id,
+              id: currentAuthUser.id,
               nama: defaultName,
-              email: authData.user.email!,
+              email: currentAuthUser.email!,
               role: "administrator",
             },
             { onConflict: "id" }
@@ -181,9 +221,9 @@ export default function LoginPage() {
         } else {
           // Fallback lokal agar user tidak pernah terkunci
           profile = {
-            id: authData.user.id,
+            id: currentAuthUser.id,
             nama: defaultName,
-            email: authData.user.email!,
+            email: currentAuthUser.email!,
             role: "administrator" as UserRole,
           };
         }

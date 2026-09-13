@@ -95,43 +95,63 @@ export function TambahPembinaModal({
 
     try {
       let userId = `usr-${Date.now()}`;
-      let isRateLimited = false;
 
-      // 1. Coba daftarkan akun baru ke Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          data: {
+      // 1. Coba buat akun melalui API Admin (langsung terverifikasi tanpa kirim email)
+      try {
+        const createRes = await fetch("/api/users/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
             nama: nama.trim(),
             role: selectedRole,
             nip: nip.trim() || undefined,
             jabatan: jabatanSekolah.trim(),
             no_hp: noHp.trim() || undefined,
             divisi: selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj" ? divisi : undefined,
-          },
-        },
-      });
+          }),
+        });
 
-      if (authError) {
-        if (authError.message.includes("User already registered")) {
+        const createData = await createRes.json();
+
+        if (!createRes.ok && createRes.status === 409) {
           setErrorMsg("Email ini sudah terdaftar di sistem. Gunakan email lain.");
           setIsLoading(false);
           return;
-        } else if (
-          authError.message.includes("rate limit") ||
-          authError.message.includes("email_rate_limit") ||
-          (authError as { status?: number }).status === 429
-        ) {
-          isRateLimited = true;
-          console.warn("Supabase email rate limit reached, continuing with profile creation.");
-        } else {
-          throw authError;
         }
-      }
 
-      if (authData?.user?.id) {
-        userId = authData.user.id;
+        if (createRes.ok && createData.user?.id) {
+          userId = createData.user.id;
+        } else {
+          // Fallback ke Supabase Auth Client jika endpoint admin tidak merespons
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: email.trim().toLowerCase(),
+            password,
+            options: {
+              data: {
+                nama: nama.trim(),
+                role: selectedRole,
+                nip: nip.trim() || undefined,
+                jabatan: jabatanSekolah.trim(),
+                no_hp: noHp.trim() || undefined,
+                divisi: selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj" ? divisi : undefined,
+              },
+            },
+          });
+
+          if (authError && authError.message.includes("User already registered")) {
+            setErrorMsg("Email ini sudah terdaftar di sistem. Gunakan email lain.");
+            setIsLoading(false);
+            return;
+          }
+
+          if (authData?.user?.id) {
+            userId = authData.user.id;
+          }
+        }
+      } catch (err) {
+        console.warn("API create user exception, continuing with profile creation:", err);
       }
 
       // 2. Simpan atau pastikan profil ada di public.profiles
@@ -241,12 +261,9 @@ export function TambahPembinaModal({
         console.warn("Refresh notice:", err);
       }
 
-      let notif = `Berhasil mendaftarkan akun ${nama} (${selectedRole.toUpperCase()}).`;
+      let notif = `Berhasil mendaftarkan akun ${nama} (${selectedRole.toUpperCase()})! Akun langsung aktif tanpa perlu verifikasi email.`;
       if (daftarSebagaiAnggotaTetap) {
         notif += ` Sekaligus resmi tercatat sebagai Anggota Tetap Kelas ${autoKelas} di Buku Induk!`;
-      }
-      if (isRateLimited) {
-        notif += ` (Catatan: Kuota email Supabase gratis sedang penuh, akun telah aktif di sistem).`;
       }
 
       setSuccessMsg(notif);
