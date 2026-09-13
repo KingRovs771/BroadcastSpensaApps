@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Loader2,
   ShieldAlert,
+  Database,
 } from "lucide-react";
 
 interface ResetPasswordModalProps {
@@ -39,11 +40,13 @@ export function ResetPasswordModal({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [copiedCredentials, setCopiedCredentials] = useState(false);
-
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
+  const [needsMigration, setNeedsMigration] = useState(false);
+  const [copiedSQL, setCopiedSQL] = useState(false);
 
   if (!isOpen || !user) return null;
 
@@ -68,10 +71,101 @@ export function ResetPasswordModal({
     setTimeout(() => setCopiedCredentials(false), 2500);
   };
 
+  const handleCopySQL = () => {
+    const sql = `-- Salin dan jalankan di SQL Editor Supabase:
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+CREATE OR REPLACE FUNCTION public.admin_reset_password(
+    target_email TEXT,
+    new_password TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_user_id UUID;
+    v_encrypted_pw TEXT;
+BEGIN
+    IF new_password IS NULL OR length(new_password) < 6 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Kata sandi baru minimal 6 karakter.');
+    END IF;
+
+    SELECT id INTO v_user_id
+    FROM auth.users
+    WHERE lower(email) = lower(trim(target_email))
+    LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        SELECT id::UUID INTO v_user_id
+        FROM public.profiles
+        WHERE lower(email) = lower(trim(target_email))
+          AND id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        LIMIT 1;
+    END IF;
+
+    IF v_user_id IS NULL THEN
+        v_user_id := extensions.gen_random_uuid();
+    END IF;
+
+    v_encrypted_pw := extensions.crypt(new_password, extensions.gen_salt('bf'));
+
+    UPDATE auth.users
+    SET encrypted_password = v_encrypted_pw,
+        email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+        updated_at = NOW()
+    WHERE id = v_user_id OR lower(email) = lower(trim(target_email));
+
+    IF NOT FOUND THEN
+        INSERT INTO auth.users (
+            id,
+            instance_id,
+            email,
+            encrypted_password,
+            email_confirmed_at,
+            raw_app_meta_data,
+            raw_user_meta_data,
+            created_at,
+            updated_at,
+            role,
+            aud
+        ) VALUES (
+            v_user_id,
+            '00000000-0000-0000-0000-000000000000',
+            lower(trim(target_email)),
+            v_encrypted_pw,
+            NOW(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{}'::jsonb,
+            NOW(),
+            NOW(),
+            'authenticated',
+            'authenticated'
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Kata sandi berhasil direset.'
+    );
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_reset_password(TEXT, TEXT) TO anon, authenticated, service_role;`;
+
+    navigator.clipboard.writeText(sql);
+    setCopiedSQL(true);
+    setTimeout(() => setCopiedSQL(false), 3000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
+    setNeedsMigration(false);
 
     if (mode === "direct") {
       if (!newPassword) {
@@ -105,6 +199,9 @@ export function ResetPasswordModal({
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.needsMigration) {
+          setNeedsMigration(true);
+        }
         throw new Error(data.error || "Gagal mereset kata sandi.");
       }
 
@@ -228,6 +325,50 @@ export function ResetPasswordModal({
             <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {needsMigration && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2.5">
+              <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                <Database className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Solusi Cepat untuk Reset Langsung:</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-studio-text-secondary">
+                Supabase secara default membatasi penggantian password antar pengguna tanpa service role key. Anda dapat mengaktifkannya sekali saja dengan menjalankan query RPC di <strong>Supabase SQL Editor</strong>:
+              </p>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCopySQL}
+                  className="px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition min-h-[38px]"
+                >
+                  {copiedSQL ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400 font-bold">Query SQL Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Salin Query SQL Pengaktif</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("email");
+                    setErrorMsg("");
+                    setNeedsMigration(false);
+                  }}
+                  className="px-3 py-2 rounded-lg bg-surface-3 hover:bg-surface-1 text-white border border-studio-border-medium text-[11px] font-semibold flex items-center justify-center gap-1.5 transition min-h-[38px]"
+                >
+                  <Mail className="w-3.5 h-3.5 text-spectrum-cyan" />
+                  <span>Atau Gunakan Kirim Link Email</span>
+                </button>
+              </div>
             </div>
           )}
 
