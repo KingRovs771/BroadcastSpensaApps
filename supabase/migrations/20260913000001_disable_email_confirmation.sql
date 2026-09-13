@@ -4,9 +4,10 @@
 -- =====================================================================
 
 -- 1. Konfirmasi seketika seluruh akun yang telah terdaftar
+-- Catatan: confirmed_at adalah GENERATED COLUMN di Supabase Auth,
+-- sehingga hanya email_confirmed_at yang perlu di-update.
 UPDATE auth.users
-SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-    confirmed_at = COALESCE(confirmed_at, NOW())
+SET email_confirmed_at = COALESCE(email_confirmed_at, NOW())
 WHERE email_confirmed_at IS NULL;
 
 -- 2. Fungsi trigger auto-confirm untuk setiap user baru di auth.users
@@ -14,7 +15,6 @@ CREATE OR REPLACE FUNCTION public.auto_confirm_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.email_confirmed_at = COALESCE(NEW.email_confirmed_at, NOW());
-    NEW.confirmed_at = COALESCE(NEW.confirmed_at, NOW());
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
