@@ -46,7 +46,6 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "pembina",
       "ketua_broadcast",
       "bendahara",
-      "sekretaris",
     ],
   },
   {
@@ -57,7 +56,6 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "pembina",
       "ketua_broadcast",
       "sekretaris",
-      "bendahara",
     ],
   },
   {
@@ -70,7 +68,6 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "ketua_divisi",
       "div_kreatif",
       "pj",
-      "sekretaris",
       "anggota",
     ],
   },
@@ -101,10 +98,9 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "administrator",
       "pembina",
       "ketua_broadcast",
-      "sekretaris",
       "ketua_divisi",
     ],
-    // Only Fotografer if role is ketua_divisi
+    // Hanya Ketua Divisi Fotografer
     allowedDivisi: ["Fotografer"],
   },
   {
@@ -114,12 +110,11 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "administrator",
       "pembina",
       "ketua_broadcast",
-      "sekretaris",
       "pj",
       "ketua_divisi",
-      "anggota",
     ],
-    // Broadcasting can manage, but others can also see / borrow
+    // Hanya Ketua Divisi Broadcasting
+    allowedDivisi: ["Broadcasting"],
   },
   {
     label: "Data Anggota",
@@ -140,7 +135,6 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "pembina",
       "ketua_broadcast",
       "sekretaris",
-      "bendahara",
     ],
   },
 ];
