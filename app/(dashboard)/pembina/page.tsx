@@ -7,7 +7,9 @@ import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaMo
 import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailModal";
 import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
 import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
-import { AnggotaRecord } from "@/lib/mock/store";
+import { UserDetailModal } from "@/components/modules/users/UserDetailModal";
+import { ResetPasswordModal } from "@/components/modules/users/ResetPasswordModal";
+import { AnggotaRecord, UserProfile } from "@/lib/mock/store";
 import { formatIDR } from "@/lib/utils/currency";
 import { calculateKasSummary } from "@/lib/utils/kas-calc";
 import { getAcademicSemester } from "@/lib/utils/semester";
@@ -33,6 +35,7 @@ import {
   Filter,
   Phone,
   Plus,
+  Key,
 } from "lucide-react";
 
 export default function PembinaDashboardPage() {
@@ -56,6 +59,10 @@ export default function PembinaDashboardPage() {
   const [selectedDetailAnggota, setSelectedDetailAnggota] = useState<AnggotaRecord | null>(null);
   const [selectedEditAnggota, setSelectedEditAnggota] = useState<AnggotaRecord | null>(null);
   const [selectedDeleteAnggota, setSelectedDeleteAnggota] = useState<AnggotaRecord | null>(null);
+
+  // User detail & reset password modals
+  const [selectedDetailUser, setSelectedDetailUser] = useState<UserProfile | null>(null);
+  const [selectedResetUser, setSelectedResetUser] = useState<UserProfile | null>(null);
 
   const currentAcademic = getAcademicSemester(new Date());
   const kasSummary = calculateKasSummary(kasPembayaranList);
@@ -386,6 +393,27 @@ export default function PembinaDashboardPage() {
                           <span className="text-spectrum-cyan font-mono">{u.divisi}</span>
                         </div>
                       )}
+
+                      {/* Baris Aksi Pengguna */}
+                      <div className="flex items-center gap-1.5 pt-2 border-t border-studio-border-subtle">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailUser(u)}
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-1 hover:bg-surface-3 text-slate-200 hover:text-white text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors border border-studio-border-subtle min-h-[36px]"
+                        >
+                          <Eye className="w-3 h-3 text-spectrum-cyan" />
+                          <span>Detail</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedResetUser(u)}
+                          title="Reset Kata Sandi Akun"
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors border border-amber-500/25 min-h-[36px]"
+                        >
+                          <Key className="w-3 h-3 text-amber-400" />
+                          <span>Reset</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -586,6 +614,24 @@ export default function PembinaDashboardPage() {
         isOpen={!!selectedDeleteAnggota}
         onClose={() => setSelectedDeleteAnggota(null)}
         anggota={selectedDeleteAnggota}
+      />
+
+      {/* Modal Detail Pengguna */}
+      <UserDetailModal
+        isOpen={!!selectedDetailUser}
+        onClose={() => setSelectedDetailUser(null)}
+        user={selectedDetailUser}
+        onResetPassword={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedResetUser(u);
+        }}
+      />
+
+      {/* Modal Reset Password Pengguna */}
+      <ResetPasswordModal
+        isOpen={!!selectedResetUser}
+        onClose={() => setSelectedResetUser(null)}
+        user={selectedResetUser}
       />
     </div>
   );

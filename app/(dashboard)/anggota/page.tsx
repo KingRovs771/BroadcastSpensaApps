@@ -2,13 +2,15 @@
 
 import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
-import { AnggotaRecord, DivisiName } from "@/lib/mock/store";
+import { AnggotaRecord, DivisiName, UserProfile } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
 import { createClient } from "@/lib/supabase/client";
 import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
 import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailModal";
 import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
 import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
+import { UserDetailModal } from "@/components/modules/users/UserDetailModal";
+import { ResetPasswordModal } from "@/components/modules/users/ResetPasswordModal";
 import { exportAnggotaToCSV } from "@/lib/utils/excel";
 import {
   Users,
@@ -27,6 +29,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Key,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -82,11 +85,17 @@ export default function AnggotaPage() {
   const [selectedEditAnggota, setSelectedEditAnggota] = useState<AnggotaRecord | null>(null);
   const [selectedDeleteAnggota, setSelectedDeleteAnggota] = useState<AnggotaRecord | null>(null);
 
+  // Popup Detail Pengguna & Reset Password (Admin & Pembina)
+  const [selectedDetailUser, setSelectedDetailUser] = useState<UserProfile | null>(null);
+  const [selectedResetUser, setSelectedResetUser] = useState<UserProfile | null>(null);
+
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
 
   const isPembinaOrAdmin =
     currentUser.role === "pembina" || currentUser.role === "administrator";
+
+  const canResetPassword = isPembinaOrAdmin;
 
   // Hak Akses Spesifik
   const canCreateAnggota = isPembinaOrAdmin || isSekretarisOrAdmin;
@@ -511,6 +520,30 @@ export default function AnggotaPage() {
                         <span className="text-slate-400 font-mono text-[10px] truncate max-w-[140px]">{user.id}</span>
                       </div>
                     </div>
+
+                    {/* Baris Aksi Pengguna */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-studio-border-subtle">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDetailUser(user)}
+                        className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px]"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-spectrum-cyan" />
+                        <span>Lihat Detail</span>
+                      </button>
+
+                      {canResetPassword && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedResetUser(user)}
+                          title="Reset Kata Sandi Akun"
+                          className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] flex items-center justify-center gap-1.5 text-xs font-semibold"
+                        >
+                          <Key className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="hidden sm:inline">Reset Sandi</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -591,6 +624,30 @@ export default function AnggotaPage() {
                     <span className="text-slate-400">Status Akses:</span>
                     <span className="text-spectrum-cyan font-mono">Monitoring Center</span>
                   </div>
+                </div>
+
+                {/* Baris Aksi Pembina */}
+                <div className="flex items-center gap-2 pt-2 border-t border-studio-border-subtle">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDetailUser(pem)}
+                    className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-violet-500/40 min-h-[40px]"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Lihat Detail</span>
+                  </button>
+
+                  {canResetPassword && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedResetUser(pem)}
+                      title="Reset Kata Sandi Akun"
+                      className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] flex items-center justify-center gap-1.5 text-xs font-semibold"
+                    >
+                      <Key className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="hidden sm:inline">Reset Sandi</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -980,6 +1037,24 @@ export default function AnggotaPage() {
         isOpen={!!selectedDeleteAnggota}
         onClose={() => setSelectedDeleteAnggota(null)}
         anggota={selectedDeleteAnggota}
+      />
+
+      {/* ── Modal Detail Pengguna (All authenticated users) ───────────────────── */}
+      <UserDetailModal
+        isOpen={!!selectedDetailUser}
+        onClose={() => setSelectedDetailUser(null)}
+        user={selectedDetailUser}
+        onResetPassword={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedResetUser(u);
+        }}
+      />
+
+      {/* ── Modal Reset Password Pengguna (Administrator & Pembina) ─────────── */}
+      <ResetPasswordModal
+        isOpen={!!selectedResetUser}
+        onClose={() => setSelectedResetUser(null)}
+        user={selectedResetUser}
       />
     </div>
   );
