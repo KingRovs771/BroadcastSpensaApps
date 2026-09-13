@@ -21,6 +21,7 @@ import {
   Sparkles,
   ArrowRight,
   TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function DashboardHomePage() {
@@ -31,6 +32,7 @@ export default function DashboardHomePage() {
     absensiList,
     projectList,
     inventarisList,
+    auditLogs,
   } = useSession();
 
   const currentAcademic = getAcademicSemester(new Date());
@@ -71,7 +73,7 @@ export default function DashboardHomePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {currentUser.role === "pembina" && (
               <Link
                 href="/pembina"
@@ -79,6 +81,15 @@ export default function DashboardHomePage() {
               >
                 <Sparkles className="w-4 h-4" />
                 <span>Monitoring Center</span>
+              </Link>
+            )}
+            {currentUser.role === "administrator" && (
+              <Link
+                href="/audit-log"
+                className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-spectrum-cyan/40 text-spectrum-cyan text-xs font-bold transition-all flex items-center gap-2 min-h-[44px]"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Audit Log Sistem</span>
               </Link>
             )}
             <Link
@@ -307,10 +318,85 @@ export default function DashboardHomePage() {
                   <p className="text-[10px] text-studio-text-muted">Kop surat dinas & 3-TTD</p>
                 </div>
               </Link>
+
+              {currentUser.role === "administrator" && (
+                <Link
+                  href="/audit-log"
+                  className="p-3 rounded-xl bg-surface-2 hover:bg-surface-3 border border-spectrum-cyan/30 flex items-center gap-3 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-spectrum-cyan" />
+                  <div>
+                    <p className="font-bold text-spectrum-cyan">Audit Log Sistem</p>
+                    <p className="text-[10px] text-studio-text-muted">Jejak transaksi & forensik keamanan</p>
+                  </div>
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Khusus Administrator: Ringkasan Audit Log & Aktivitas Pengguna */}
+      {currentUser.role === "administrator" && (
+        <div className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-studio-border-subtle">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-spectrum-cyan/10 text-spectrum-cyan border border-spectrum-cyan/20">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-xs font-mono font-bold uppercase text-white tracking-wider">
+                  Audit Log & Aktivitas Pengguna Terkini
+                </h2>
+                <p className="text-[11px] text-studio-text-secondary">
+                  Monitoring riwayat mutasi akun, data siswa, keuangan kas, dan kurasi media secara real-time.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/audit-log"
+              className="text-xs font-mono text-spectrum-cyan hover:underline flex items-center gap-1 font-semibold self-start sm:self-auto"
+            >
+              <span>Buka Seluruh Log ({auditLogs.length})</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {auditLogs.slice(0, 4).map((log) => (
+              <div
+                key={log.id}
+                className="p-3.5 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-2 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-surface-3 text-spectrum-cyan border border-studio-border-subtle truncate max-w-[130px]">
+                      {log.action}
+                    </span>
+                    <span className="text-[10px] font-mono text-studio-text-muted whitespace-nowrap">
+                      {new Date(log.timestamp).toLocaleTimeString("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-white mt-1.5 line-clamp-1">
+                    {log.actor_name}
+                  </p>
+                  <p className="text-[11px] text-studio-text-secondary line-clamp-2 mt-0.5">
+                    {log.details || `Mutasi pada public.${log.target_table}`}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-studio-border-subtle/50 text-[10px] font-mono text-studio-text-muted flex items-center justify-between">
+                  <span>public.{log.target_table}</span>
+                  <span className="uppercase">{log.actor_role}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

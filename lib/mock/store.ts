@@ -181,12 +181,73 @@ export interface AuditLogItem {
   actor_id: string;
   actor_name: string;
   actor_role: string;
+  divisi?: string;
   action: string;
   target_table: string;
   target_id?: string;
   details?: string;
+  extra_json?: Record<string, any>;
   timestamp: string;
 }
+
+export const MOCK_AUDIT_LOGS: AuditLogItem[] = [
+  {
+    id: "audit-init-01",
+    actor_id: "usr-admin",
+    actor_name: "Bpk. Irawan Kurnia, M.Kom",
+    actor_role: "administrator",
+    action: "SYSTEM_INITIALIZE",
+    target_table: "system",
+    details: "Inisialisasi core broadcast OS v3.0.0 & sinkronisasi skema basis data Supabase",
+    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+    extra_json: { ip: "127.0.0.1", platform: "Next.js App Router", version: "3.0.0" },
+  },
+  {
+    id: "audit-init-02",
+    actor_id: "usr-admin",
+    actor_name: "Bpk. Irawan Kurnia, M.Kom",
+    actor_role: "administrator",
+    action: "REGISTER_USER",
+    target_table: "profiles",
+    details: "Mendaftarkan akun baru: Dra. Hj. Endang Sulastri (Dewan Pembina)",
+    timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
+    extra_json: { email: "endang@spensa.sch.id", role: "pembina" },
+  },
+  {
+    id: "audit-init-03",
+    actor_id: "usr-bendahara",
+    actor_name: "Zahra Aulia",
+    actor_role: "bendahara",
+    action: "BAYAR_KAS",
+    target_table: "kas_pembayaran",
+    details: "Mencatat setoran iuran kas mingguan periode September 2026",
+    timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
+    extra_json: { nominal: 2000, jumlah_siswa: 15 },
+  },
+  {
+    id: "audit-init-04",
+    actor_id: "usr-kreatif",
+    actor_name: "Fadhil Muhammad",
+    actor_role: "div_kreatif",
+    divisi: "Kreatif",
+    action: "UPDATE_PRODUKSI",
+    target_table: "produksi_video",
+    details: "Mengajukan naskah kurasi Gate 1: Profil Ekstrakurikuler Spensa 2026",
+    timestamp: new Date(Date.now() - 3600000 * 18).toISOString(),
+    extra_json: { status: "review_pembina", gate: 1 },
+  },
+  {
+    id: "audit-init-05",
+    actor_id: "usr-admin",
+    actor_name: "Bpk. Irawan Kurnia, M.Kom",
+    actor_role: "administrator",
+    action: "RESET_PASSWORD",
+    target_table: "auth.users",
+    details: "Melakukan reset kata sandi mandiri akun pengguna: zahra@spensa.sch.id",
+    timestamp: new Date(Date.now() - 3600000 * 26).toISOString(),
+    extra_json: { target_email: "zahra@spensa.sch.id", method: "admin_override" },
+  },
+];
 
 // ---------------------------------------------------------------------
 // MOCK DATA INITIALIZATION

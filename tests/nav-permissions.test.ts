@@ -75,14 +75,36 @@ describe("nav-permissions (RBAC Navigation Filters)", () => {
     expect(bcMenus).not.toContain("Buku Kas Anggota");
   });
 
-  it("Administrator melihat seluruh 11 menu sistem", () => {
+  it("Administrator melihat seluruh 12 menu sistem termasuk Audit Log Sistem", () => {
     const adminMenus = ALL_NAV_ITEMS.filter((item) =>
       isRouteAllowedForUser(item, "administrator")
     ).map((item) => item.label);
 
-    expect(adminMenus.length).toBe(11);
+    expect(adminMenus.length).toBe(12);
     expect(adminMenus).toContain("Keuangan Pembina");
     expect(adminMenus).toContain("Produksi Dual-Gate");
     expect(adminMenus).toContain("Laporan Semester");
+    expect(adminMenus).toContain("Audit Log Sistem");
+  });
+
+  it("Role non-administrator tidak dapat melihat menu Audit Log Sistem", () => {
+    const nonAdminRoles = [
+      "pembina",
+      "ketua_broadcast",
+      "ketua_divisi",
+      "sekretaris",
+      "bendahara",
+      "div_kreatif",
+      "pj",
+      "anggota",
+    ] as const;
+
+    for (const role of nonAdminRoles) {
+      const menus = ALL_NAV_ITEMS.filter((item) =>
+        isRouteAllowedForUser(item, role)
+      ).map((item) => item.label);
+
+      expect(menus).not.toContain("Audit Log Sistem");
+    }
   });
 });

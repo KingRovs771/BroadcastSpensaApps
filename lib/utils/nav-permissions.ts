@@ -137,6 +137,12 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "sekretaris",
     ],
   },
+  {
+    label: "Audit Log Sistem",
+    href: "/audit-log",
+    badge: "SEC",
+    allowedRoles: ["administrator"],
+  },
 ];
 
 /**

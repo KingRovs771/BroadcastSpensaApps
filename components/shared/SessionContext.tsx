@@ -17,6 +17,7 @@ import {
   KeuanganPembinaItem,
   AbsensiRecord,
   AuditLogItem,
+  MOCK_AUDIT_LOGS,
 } from "@/lib/mock/store";
 
 // ─── Fallback guest profile ────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [inventarisList, setInventarisList] = useState<InventarisItem[]>([]);
   const [notulenList, setNotulenList] = useState<NotulenItem[]>([]);
   const [keuanganPembinaList, setKeuanganPembinaList] = useState<KeuanganPembinaItem[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
 
   // ── Fetch profile from Supabase profiles table ─────────────────────────────
   const fetchAndSetProfile = useCallback(async (userId: string) => {
@@ -189,18 +190,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .from("audit_log")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(50);
-      if (auditData) {
+        .limit(200);
+      if (auditData && auditData.length > 0) {
         setAuditLogs(
           auditData.map((a: any) => ({
             id: a.id,
             actor_id: a.actor_id,
-            actor_name: a.actor_role,
+            actor_name: a.extra_json?.actor_name || a.actor_role,
             actor_role: a.actor_role as UserRole,
+            divisi: a.divisi,
             action: a.action,
             target_table: a.target_table,
             target_id: a.target_id,
             details: a.extra_json?.details,
+            extra_json: a.extra_json,
             timestamp: a.created_at,
           }))
         );
@@ -329,10 +332,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       actor_id: currentUser.id,
       actor_name: currentUser.nama,
       actor_role: currentUser.role,
+      divisi: currentUser.divisi,
       action,
       target_table: targetTable,
       target_id: targetId,
       details,
+      extra_json: {
+        actor_name: currentUser.nama,
+        details: details || "",
+      },
       timestamp: new Date().toISOString(),
     };
     setAuditLogs((prev) => [newLog, ...prev]);
@@ -345,7 +353,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         action,
         target_table: targetTable,
         target_id: targetId && targetId.length === 36 && targetId.includes("-") ? targetId : null,
-        extra_json: details ? { details } : {},
+        extra_json: {
+          actor_name: currentUser.nama,
+          details: details || "",
+        },
       });
     } catch {
       // ignore

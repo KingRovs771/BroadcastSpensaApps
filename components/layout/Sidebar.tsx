@@ -19,6 +19,7 @@ import {
   Users,
   Printer,
   ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 
 import { ALL_NAV_ITEMS, isRouteAllowedForUser } from "@/lib/utils/nav-permissions";
@@ -92,6 +93,12 @@ export function Sidebar() {
       label: "Laporan Semester",
       href: "/laporan",
       icon: Printer,
+    },
+    {
+      label: "Audit Log Sistem",
+      href: "/audit-log",
+      icon: ShieldCheck,
+      badge: "SEC",
     },
   ];
 

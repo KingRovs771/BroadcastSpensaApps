@@ -134,6 +134,13 @@ export function MobileMenuDrawer() {
       icon: Printer,
       desc: "Generator dokumen & format cetak resmi",
     },
+    {
+      label: "Audit Log Sistem",
+      href: "/audit-log",
+      icon: ShieldCheck,
+      desc: "Jejak aktivitas user & keamanan sistem",
+      badge: "SEC",
+    },
   ];
 
   // Filter menu strictly according to role and division
