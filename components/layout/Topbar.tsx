@@ -32,7 +32,7 @@ export function Topbar() {
   };
 
   return (
-    <header className="h-16 bg-surface-1 border-b border-studio-border-subtle px-4 lg:px-6 flex items-center justify-between gap-4 sticky top-0 z-30">
+    <header className="h-16 bg-surface-1 border-b border-studio-border-subtle px-4 lg:px-6 flex items-center justify-between gap-4 sticky top-0 z-30 shrink-0">
       {/* Left: Mobile hamburger menu + Semester branding */}
       <div className="flex items-center gap-2.5 sm:gap-3">
         <button

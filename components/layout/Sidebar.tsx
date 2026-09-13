@@ -103,16 +103,16 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="w-64 bg-surface-1 border-r border-studio-border-subtle flex flex-col justify-between shrink-0 min-h-screen">
-      <div>
+    <aside className="w-64 bg-surface-1 border-r border-studio-border-subtle flex flex-col justify-between shrink-0 h-full min-h-full">
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Top Branding */}
-        <div className="p-5 border-b border-studio-border-subtle">
+        <div className="p-5 border-b border-studio-border-subtle shrink-0">
           <SpectrumLogo size="md" />
         </div>
 
         {/* User Role Card */}
-        <div className="mx-3 my-3 p-3 bg-surface-2 rounded-xl border border-studio-border-subtle flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-orbital-violet/20 border border-orbital-violet/40 flex items-center justify-center font-bold text-orbital-magenta text-sm">
+        <div className="mx-3 my-3 p-3 bg-surface-2 rounded-xl border border-studio-border-subtle flex items-center gap-3 shrink-0">
+          <div className="w-9 h-9 rounded-full bg-orbital-violet/20 border border-orbital-violet/40 flex items-center justify-center font-bold text-orbital-magenta text-sm shrink-0">
             {currentUser.nama.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
@@ -124,7 +124,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation links */}
-        <nav className="px-2 py-1 space-y-0.5 overflow-y-auto max-h-[calc(100vh-280px)]">
+        <nav className="px-2 py-1 space-y-0.5 overflow-y-auto flex-1 min-h-0">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -171,7 +171,7 @@ export function Sidebar() {
       </div>
 
       {/* Footer Studio Spectrum Signature Bar */}
-      <div className="p-4 border-t border-studio-border-subtle bg-surface-1/50">
+      <div className="p-4 border-t border-studio-border-subtle bg-surface-1/50 shrink-0">
         <div className="flex items-center justify-between text-[10px] font-mono text-studio-text-muted mb-2">
           <span>SPECTRUM ENGINE</span>
           <span className="text-spectrum-jade">ONLINE</span>
