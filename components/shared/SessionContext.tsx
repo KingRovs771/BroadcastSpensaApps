@@ -18,6 +18,8 @@ import {
   AbsensiRecord,
   AuditLogItem,
   MOCK_AUDIT_LOGS,
+  MOCK_USERS,
+  INITIAL_ANGGOTA,
 } from "@/lib/mock/store";
 
 // ─── Fallback guest profile ────────────────────────────────────────────────────
@@ -92,10 +94,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  // Data collections — empty by default for clean production use
-  const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>([]);
-  const [pembinaList, setPembinaList] = useState<UserProfile[]>([]);
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  // Data collections — populated with master data and synchronized with Supabase
+  const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>(INITIAL_ANGGOTA);
+  const [pembinaList, setPembinaList] = useState<UserProfile[]>(
+    MOCK_USERS.filter((u) => u.role === "pembina" || u.role === "administrator")
+  );
+  const [allUsers, setAllUsers] = useState<UserProfile[]>(MOCK_USERS);
   const [produksiList, setProduksiList] = useState<ProduksiVideo[]>([]);
   const [kasSettings, setKasSettings] = useState<KasSettings>({
     nominal: 2000,
@@ -141,7 +145,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       // 1. Anggota
       const { data: anggotaData } = await supabase.from("anggota").select("*");
-      if (anggotaData) setAnggotaList(anggotaData as AnggotaRecord[]);
+      if (anggotaData && anggotaData.length > 0) {
+        const dbNis = new Set(anggotaData.map((a: any) => a.nis));
+        const mergedAnggota = [
+          ...(anggotaData as AnggotaRecord[]),
+          ...INITIAL_ANGGOTA.filter((ia) => !dbNis.has(ia.nis)),
+        ];
+        setAnggotaList(mergedAnggota);
+      } else {
+        setAnggotaList(INITIAL_ANGGOTA);
+      }
 
       // 2. Produksi
       const { data: produksiData } = await supabase.from("produksi_video").select("*");
@@ -214,17 +227,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .from("profiles")
         .select("id, nama, email, role, divisi, signature_url")
         .in("role", ["pembina", "administrator"]);
-      if (pembinaData) {
-        setPembinaList(pembinaData as UserProfile[]);
+
+      const defaultPembina = MOCK_USERS.filter(
+        (u) => u.role === "pembina" || u.role === "administrator"
+      );
+      if (pembinaData && pembinaData.length > 0) {
+        const dbPembinaEmails = new Set(
+          pembinaData.map((p: any) => p.email?.toLowerCase()).filter(Boolean)
+        );
+        const mergedPembina = [
+          ...(pembinaData as UserProfile[]),
+          ...defaultPembina.filter((p) => !dbPembinaEmails.has(p.email.toLowerCase())),
+        ];
+        setPembinaList(mergedPembina);
+      } else {
+        setPembinaList(defaultPembina);
       }
 
-      // 13. Semua Pengguna (All Users in Database)
+      // 13. Semua Pengguna (All Users in Database including all 7 Ketua Divisi)
       const { data: allProfilesData } = await supabase
         .from("profiles")
         .select("id, nama, email, role, divisi, signature_url")
         .order("created_at", { ascending: false });
-      if (allProfilesData) {
-        setAllUsers(allProfilesData as UserProfile[]);
+
+      if (allProfilesData && allProfilesData.length > 0) {
+        const dbUserEmails = new Set(
+          allProfilesData.map((u: any) => u.email?.toLowerCase()).filter(Boolean)
+        );
+        const mergedUsers = [
+          ...(allProfilesData as UserProfile[]),
+          ...MOCK_USERS.filter((mu) => !dbUserEmails.has(mu.email.toLowerCase())),
+        ];
+        setAllUsers(mergedUsers);
+      } else {
+        setAllUsers(MOCK_USERS);
       }
     } catch (err) {
       console.error("Failed to load Supabase data:", err);

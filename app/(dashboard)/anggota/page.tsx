@@ -67,6 +67,7 @@ export default function AnggotaPage() {
   const [activeTab, setActiveTab] = useState<"tetap" | "ekskul" | "pembina" | "users">("tetap");
   const [searchQuery, setSearchQuery] = useState("");
   const [kelasFilter, setKelasFilter] = useState<"all" | "VII" | "VIII" | "IX">("all");
+  const [userRoleFilter, setUserRoleFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPembinaModalOpen, setIsPembinaModalOpen] = useState(false);
 
@@ -180,14 +181,30 @@ export default function AnggotaPage() {
       p.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter semua pengguna
-  const filteredUsers = (allUsers || []).filter(
-    (u) =>
-      u.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.divisi && u.divisi.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter semua pengguna (termasuk filter khusus Ketua Divisi & Master Roles)
+  const filteredUsers = (allUsers || []).filter((u) => {
+    // 1. Role Filter
+    if (userRoleFilter !== "all") {
+      if (userRoleFilter === "ketua_divisi" && u.role !== "ketua_divisi") return false;
+      if (userRoleFilter === "pembina_admin" && u.role !== "pembina" && u.role !== "administrator") return false;
+      if (userRoleFilter === "pengurus" && !["ketua_broadcast", "sekretaris", "bendahara"].includes(u.role)) return false;
+      if (userRoleFilter === "kreatif_pj" && !["div_kreatif", "pj"].includes(u.role)) return false;
+      if (userRoleFilter === "anggota" && u.role !== "anggota") return false;
+    }
+
+    // 2. Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matches =
+        u.nama.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.role.toLowerCase().includes(q) ||
+        (u.divisi && u.divisi.toLowerCase().includes(q));
+      if (!matches) return false;
+    }
+
+    return true;
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -418,6 +435,54 @@ export default function AnggotaPage() {
                 }`}
               >
                 {k === "all" ? "Semua Kelas" : `Kelas ${k}`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "users" && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {[
+              { id: "all", label: "Semua Akun", count: (allUsers || []).length },
+              {
+                id: "ketua_divisi",
+                label: "Ketua Divisi",
+                count: (allUsers || []).filter((u) => u.role === "ketua_divisi").length,
+              },
+              {
+                id: "pembina_admin",
+                label: "Pembina & Admin",
+                count: (allUsers || []).filter((u) => u.role === "pembina" || u.role === "administrator").length,
+              },
+              {
+                id: "pengurus",
+                label: "Pengurus Inti",
+                count: (allUsers || []).filter((u) => ["ketua_broadcast", "sekretaris", "bendahara"].includes(u.role)).length,
+              },
+              {
+                id: "kreatif_pj",
+                label: "Divisi & PJ",
+                count: (allUsers || []).filter((u) => ["div_kreatif", "pj"].includes(u.role)).length,
+              },
+              {
+                id: "anggota",
+                label: "Anggota",
+                count: (allUsers || []).filter((u) => u.role === "anggota").length,
+              },
+            ].map((rf) => (
+              <button
+                key={rf.id}
+                onClick={() => setUserRoleFilter(rf.id)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 ${
+                  userRoleFilter === rf.id
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold shadow-sm"
+                    : "bg-surface-1 text-slate-400 border-studio-border-subtle hover:text-white"
+                }`}
+              >
+                <span>{rf.label}</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-white/10 font-bold">
+                  {rf.count}
+                </span>
               </button>
             ))}
           </div>

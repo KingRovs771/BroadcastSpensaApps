@@ -52,6 +52,7 @@ export default function PembinaDashboardPage() {
   } = useSession();
 
   const [activeUserSection, setActiveUserSection] = useState<"pembina" | "users" | "anggota">("pembina");
+  const [userRoleFilter, setUserRoleFilter] = useState<string>("all");
   const [isTambahPembinaOpen, setIsTambahPembinaOpen] = useState(false);
   const [anggotaSearchQuery, setAnggotaSearchQuery] = useState("");
   const [anggotaTipeFilter, setAnggotaTipeFilter] = useState<"all" | "tetap" | "ekskul">("all");
@@ -66,6 +67,15 @@ export default function PembinaDashboardPage() {
 
   const currentAcademic = getAcademicSemester(new Date());
   const kasSummary = calculateKasSummary(kasPembayaranList);
+
+  const filteredUsers = (allUsers || []).filter((u) => {
+    if (userRoleFilter === "ketua_divisi") return u.role === "ketua_divisi";
+    if (userRoleFilter === "pembina_admin") return u.role === "pembina" || u.role === "administrator";
+    if (userRoleFilter === "pengurus") return ["ketua_broadcast", "sekretaris", "bendahara"].includes(u.role);
+    if (userRoleFilter === "kreatif_pj") return ["div_kreatif", "pj"].includes(u.role);
+    if (userRoleFilter === "anggota") return u.role === "anggota";
+    return true;
+  });
 
   const filteredAnggotaList = anggotaList
     .filter((a) => {
@@ -340,15 +350,56 @@ export default function PembinaDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-studio-text-secondary px-1">
-                <span>Total <strong>{(allUsers || []).length}</strong> akun pengguna terdaftar di Supabase</span>
-                <Link href="/anggota" className="text-spectrum-cyan hover:underline font-mono text-[11px] flex items-center gap-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-studio-text-secondary px-1">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                  {[
+                    { id: "all", label: "Semua", count: (allUsers || []).length },
+                    {
+                      id: "ketua_divisi",
+                      label: "Ketua Divisi",
+                      count: (allUsers || []).filter((u) => u.role === "ketua_divisi").length,
+                    },
+                    {
+                      id: "pembina_admin",
+                      label: "Pembina & Admin",
+                      count: (allUsers || []).filter((u) => u.role === "pembina" || u.role === "administrator").length,
+                    },
+                    {
+                      id: "pengurus",
+                      label: "Pengurus Inti",
+                      count: (allUsers || []).filter((u) => ["ketua_broadcast", "sekretaris", "bendahara"].includes(u.role)).length,
+                    },
+                    {
+                      id: "kreatif_pj",
+                      label: "Divisi & PJ",
+                      count: (allUsers || []).filter((u) => ["div_kreatif", "pj"].includes(u.role)).length,
+                    },
+                  ].map((rf) => (
+                    <button
+                      key={rf.id}
+                      onClick={() => setUserRoleFilter(rf.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap transition-all border flex items-center gap-1 ${
+                        userRoleFilter === rf.id
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold"
+                          : "bg-surface-2 text-slate-400 border-studio-border-subtle hover:text-white"
+                      }`}
+                    >
+                      <span>{rf.label}</span>
+                      <span className="px-1 py-0.2 rounded-full text-[9px] bg-white/10 font-bold">
+                        {rf.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <Link href="/anggota" className="text-spectrum-cyan hover:underline font-mono text-[11px] flex items-center gap-1 shrink-0 self-end sm:self-auto">
                   <span>Buku Induk Lengkap</span>
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(allUsers || []).map((u) => {
+                {filteredUsers.map((u) => {
                   const isSelf = u.id === currentUser.id;
                   return (
                     <div
