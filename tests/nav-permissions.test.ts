@@ -75,15 +75,16 @@ describe("nav-permissions (RBAC Navigation Filters)", () => {
     expect(bcMenus).not.toContain("Buku Kas Anggota");
   });
 
-  it("Administrator melihat seluruh 12 menu sistem termasuk Audit Log Sistem", () => {
+  it("Administrator melihat seluruh 13 menu sistem termasuk Audit Log Sistem dan Kelola Pengguna", () => {
     const adminMenus = ALL_NAV_ITEMS.filter((item) =>
       isRouteAllowedForUser(item, "administrator")
     ).map((item) => item.label);
 
-    expect(adminMenus.length).toBe(12);
+    expect(adminMenus.length).toBe(13);
     expect(adminMenus).toContain("Keuangan Pembina");
     expect(adminMenus).toContain("Produksi Dual-Gate");
     expect(adminMenus).toContain("Laporan Semester");
+    expect(adminMenus).toContain("Kelola Pengguna");
     expect(adminMenus).toContain("Audit Log Sistem");
   });
 

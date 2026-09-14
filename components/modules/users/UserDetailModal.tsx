@@ -21,6 +21,8 @@ import {
   Layers,
   Clock,
   Sparkles,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
 interface UserDetailModalProps {
@@ -28,6 +30,8 @@ interface UserDetailModalProps {
   onClose: () => void;
   user: UserProfile | null;
   onResetPassword?: (user: UserProfile) => void;
+  onEdit?: (user: UserProfile) => void;
+  onDelete?: (user: UserProfile) => void;
 }
 
 export function UserDetailModal({
@@ -35,6 +39,8 @@ export function UserDetailModal({
   onClose,
   user,
   onResetPassword,
+  onEdit,
+  onDelete,
 }: UserDetailModalProps) {
   const { currentUser, anggotaList, absensiList, kasPembayaranList } = useSession();
   const [isCopied, setIsCopied] = useState(false);
@@ -42,6 +48,8 @@ export function UserDetailModal({
   if (!isOpen || !user) return null;
 
   const isSelf = user.id === currentUser.id;
+  const canEdit = currentUser.role === "administrator" || currentUser.role === "pembina";
+  const canDelete = currentUser.role === "administrator";
   const canResetPassword =
     currentUser.role === "administrator" || currentUser.role === "pembina";
 
@@ -353,27 +361,55 @@ export function UserDetailModal({
           )}
 
           {/* Action Footer */}
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-3 border-t border-studio-border-subtle">
-            {canResetPassword && onResetPassword ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onResetPassword(user);
-                }}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 text-xs font-bold border border-amber-500/35 hover:border-amber-400/50 flex items-center justify-center gap-2 transition-all min-h-[44px]"
-              >
-                <Key className="w-4 h-4 text-amber-400" />
-                <span>Reset Kata Sandi Akun</span>
-              </button>
-            ) : (
-              <div />
-            )}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-studio-border-subtle">
+            <div className="flex flex-wrap items-center gap-2">
+              {canEdit && onEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onEdit(user);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-spectrum-cyan/15 hover:bg-spectrum-cyan/25 text-spectrum-cyan text-xs font-bold border border-spectrum-cyan/35 flex items-center gap-1.5 transition-all min-h-[42px]"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>Edit Akun</span>
+                </button>
+              )}
+
+              {canResetPassword && onResetPassword && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onResetPassword(user);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 text-xs font-bold border border-amber-500/35 hover:border-amber-400/50 flex items-center gap-1.5 transition-all min-h-[42px]"
+                >
+                  <Key className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Reset Sandi</span>
+                </button>
+              )}
+
+              {canDelete && onDelete && !isSelf && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onDelete(user);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 text-xs font-bold border border-rose-500/35 hover:border-rose-500/50 flex items-center gap-1.5 transition-all min-h-[42px]"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus</span>
+                </button>
+              )}
+            </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors min-h-[44px]"
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors min-h-[42px]"
             >
               Tutup
             </button>

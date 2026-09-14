@@ -10,6 +10,8 @@ import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailMo
 import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
 import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
 import { UserDetailModal } from "@/components/modules/users/UserDetailModal";
+import { EditUserModal } from "@/components/modules/users/EditUserModal";
+import { HapusUserModal } from "@/components/modules/users/HapusUserModal";
 import { ResetPasswordModal } from "@/components/modules/users/ResetPasswordModal";
 import { exportAnggotaToCSV } from "@/lib/utils/excel";
 import {
@@ -86,9 +88,11 @@ export default function AnggotaPage() {
   const [selectedEditAnggota, setSelectedEditAnggota] = useState<AnggotaRecord | null>(null);
   const [selectedDeleteAnggota, setSelectedDeleteAnggota] = useState<AnggotaRecord | null>(null);
 
-  // Popup Detail Pengguna & Reset Password (Admin & Pembina)
+  // Popup Detail Pengguna, Edit, Reset Password & Hapus (Admin & Pembina)
   const [selectedDetailUser, setSelectedDetailUser] = useState<UserProfile | null>(null);
   const [selectedResetUser, setSelectedResetUser] = useState<UserProfile | null>(null);
+  const [selectedEditUser, setSelectedEditUser] = useState<UserProfile | null>(null);
+  const [selectedDeleteUser, setSelectedDeleteUser] = useState<UserProfile | null>(null);
 
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
@@ -591,21 +595,42 @@ export default function AnggotaPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedDetailUser(user)}
-                        className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px]"
+                        className="flex-1 px-2.5 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px]"
                       >
                         <Eye className="w-3.5 h-3.5 text-spectrum-cyan" />
-                        <span>Lihat Detail</span>
+                        <span>Detail</span>
                       </button>
+
+                      {isPembinaOrAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEditUser(user)}
+                          title="Edit Akun Pengguna"
+                          className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                        >
+                          <Edit className="w-3.5 h-3.5 text-spectrum-cyan" />
+                        </button>
+                      )}
 
                       {canResetPassword && (
                         <button
                           type="button"
                           onClick={() => setSelectedResetUser(user)}
                           title="Reset Kata Sandi Akun"
-                          className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] flex items-center justify-center gap-1.5 text-xs font-semibold"
+                          className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
                         >
                           <Key className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="hidden sm:inline">Reset Sandi</span>
+                        </button>
+                      )}
+
+                      {currentUser.role === "administrator" && !isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDeleteUser(user)}
+                          title="Hapus Akun Pengguna"
+                          className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
@@ -696,21 +721,42 @@ export default function AnggotaPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedDetailUser(pem)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-violet-500/40 min-h-[40px]"
+                    className="flex-1 px-2.5 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-violet-500/40 min-h-[40px]"
                   >
                     <Eye className="w-3.5 h-3.5 text-violet-400" />
-                    <span>Lihat Detail</span>
+                    <span>Detail</span>
                   </button>
+
+                  {isPembinaOrAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEditUser(pem)}
+                      title="Edit Akun Pembina"
+                      className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-violet-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-violet-400" />
+                    </button>
+                  )}
 
                   {canResetPassword && (
                     <button
                       type="button"
                       onClick={() => setSelectedResetUser(pem)}
                       title="Reset Kata Sandi Akun"
-                      className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] flex items-center justify-center gap-1.5 text-xs font-semibold"
+                      className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
                     >
                       <Key className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="hidden sm:inline">Reset Sandi</span>
+                    </button>
+                  )}
+
+                  {currentUser.role === "administrator" && pem.id !== currentUser.id && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDeleteUser(pem)}
+                      title="Hapus Akun Pembina"
+                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -1113,6 +1159,28 @@ export default function AnggotaPage() {
           setSelectedDetailUser(null);
           setSelectedResetUser(u);
         }}
+        onEdit={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedEditUser(u);
+        }}
+        onDelete={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedDeleteUser(u);
+        }}
+      />
+
+      {/* ── Modal Edit Pengguna (Admin & Pembina) ───────────────────────────── */}
+      <EditUserModal
+        isOpen={!!selectedEditUser}
+        onClose={() => setSelectedEditUser(null)}
+        user={selectedEditUser}
+      />
+
+      {/* ── Modal Hapus Pengguna (Administrator Only) ─────────────────────────── */}
+      <HapusUserModal
+        isOpen={!!selectedDeleteUser}
+        onClose={() => setSelectedDeleteUser(null)}
+        user={selectedDeleteUser}
       />
 
       {/* ── Modal Reset Password Pengguna (Administrator & Pembina) ─────────── */}

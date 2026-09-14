@@ -20,6 +20,7 @@ import {
   Printer,
   ShieldAlert,
   ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 
 import { ALL_NAV_ITEMS, isRouteAllowedForUser } from "@/lib/utils/nav-permissions";
@@ -93,6 +94,12 @@ export function Sidebar() {
       label: "Laporan Semester",
       href: "/laporan",
       icon: Printer,
+    },
+    {
+      label: "Kelola Pengguna",
+      href: "/pengguna",
+      icon: UserCheck,
+      badge: "USER",
     },
     {
       label: "Audit Log Sistem",

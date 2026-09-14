@@ -138,6 +138,12 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     ],
   },
   {
+    label: "Kelola Pengguna",
+    href: "/pengguna",
+    badge: "USER",
+    allowedRoles: ["administrator", "pembina"],
+  },
+  {
     label: "Audit Log Sistem",
     href: "/audit-log",
     badge: "SEC",

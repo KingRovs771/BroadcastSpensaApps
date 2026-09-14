@@ -8,6 +8,8 @@ import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailMo
 import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
 import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
 import { UserDetailModal } from "@/components/modules/users/UserDetailModal";
+import { EditUserModal } from "@/components/modules/users/EditUserModal";
+import { HapusUserModal } from "@/components/modules/users/HapusUserModal";
 import { ResetPasswordModal } from "@/components/modules/users/ResetPasswordModal";
 import { AnggotaRecord, UserProfile } from "@/lib/mock/store";
 import { formatIDR } from "@/lib/utils/currency";
@@ -61,9 +63,11 @@ export default function PembinaDashboardPage() {
   const [selectedEditAnggota, setSelectedEditAnggota] = useState<AnggotaRecord | null>(null);
   const [selectedDeleteAnggota, setSelectedDeleteAnggota] = useState<AnggotaRecord | null>(null);
 
-  // User detail & reset password modals
+  // User detail, edit, delete & reset password modals
   const [selectedDetailUser, setSelectedDetailUser] = useState<UserProfile | null>(null);
   const [selectedResetUser, setSelectedResetUser] = useState<UserProfile | null>(null);
+  const [selectedEditUser, setSelectedEditUser] = useState<UserProfile | null>(null);
+  const [selectedDeleteUser, setSelectedDeleteUser] = useState<UserProfile | null>(null);
 
   const currentAcademic = getAcademicSemester(new Date());
   const kasSummary = calculateKasSummary(kasPembayaranList);
@@ -457,13 +461,30 @@ export default function PembinaDashboardPage() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setSelectedEditUser(u)}
+                          title="Edit Akun Pengguna"
+                          className="p-1.5 rounded-lg bg-surface-1 hover:bg-surface-3 text-slate-300 hover:text-white transition-colors border border-studio-border-subtle min-h-[36px] min-w-[36px] flex items-center justify-center"
+                        >
+                          <Edit className="w-3 h-3 text-spectrum-cyan" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setSelectedResetUser(u)}
                           title="Reset Kata Sandi Akun"
-                          className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors border border-amber-500/25 min-h-[36px]"
+                          className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors border border-amber-500/25 min-h-[36px] min-w-[36px]"
                         >
                           <Key className="w-3 h-3 text-amber-400" />
-                          <span>Reset</span>
                         </button>
+                        {currentUser.role === "administrator" && !isSelf && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDeleteUser(u)}
+                            title="Hapus Akun Pengguna"
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors border border-rose-500/25 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -676,6 +697,28 @@ export default function PembinaDashboardPage() {
           setSelectedDetailUser(null);
           setSelectedResetUser(u);
         }}
+        onEdit={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedEditUser(u);
+        }}
+        onDelete={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedDeleteUser(u);
+        }}
+      />
+
+      {/* Modal Edit Pengguna */}
+      <EditUserModal
+        isOpen={!!selectedEditUser}
+        onClose={() => setSelectedEditUser(null)}
+        user={selectedEditUser}
+      />
+
+      {/* Modal Hapus Pengguna */}
+      <HapusUserModal
+        isOpen={!!selectedDeleteUser}
+        onClose={() => setSelectedDeleteUser(null)}
+        user={selectedDeleteUser}
       />
 
       {/* Modal Reset Password Pengguna */}
