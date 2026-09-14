@@ -12,6 +12,8 @@ import {
   Mail,
   Shield,
   CheckCircle2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface HapusUserModalProps {
@@ -31,10 +33,95 @@ export function HapusUserModal({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [needsMigration, setNeedsMigration] = useState(false);
+  const [copiedSQL, setCopiedSQL] = useState(false);
 
   if (!isOpen || !user) return null;
 
   const isSelf = user.id === currentUser.id;
+
+  const handleCopySQL = () => {
+    const sql = `-- Eksekusi di Supabase Dashboard -> SQL Editor
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_identifier TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+    v_user_id UUID;
+    v_actor_role TEXT;
+    v_target_email TEXT;
+    v_target_nama TEXT;
+BEGIN
+    SELECT role INTO v_actor_role FROM public.profiles WHERE id = auth.uid();
+    IF auth.uid() IS NOT NULL AND (v_actor_role IS NULL OR v_actor_role NOT IN ('administrator', 'pembina')) THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Akses ditolak: Hanya Administrator atau Dewan Pembina yang berhak menghapus akun.');
+    END IF;
+
+    IF target_identifier ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        v_user_id := target_identifier::UUID;
+        SELECT email, nama INTO v_target_email, v_target_nama FROM public.profiles WHERE id = v_user_id;
+    ELSE
+        SELECT id, email, nama INTO v_user_id, v_target_email, v_target_nama FROM public.profiles WHERE lower(email) = lower(trim(target_identifier)) LIMIT 1;
+        IF v_user_id IS NULL THEN
+            SELECT id, email INTO v_user_id, v_target_email FROM auth.users WHERE lower(email) = lower(trim(target_identifier)) LIMIT 1;
+        END IF;
+    END IF;
+
+    IF v_user_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Pengguna tidak ditemukan.');
+    END IF;
+
+    IF auth.uid() IS NOT NULL AND auth.uid() = v_user_id THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Tidak dapat menghapus akun sendiri yang sedang aktif.');
+    END IF;
+
+    UPDATE public.divisi_ref SET ketua_id = NULL WHERE ketua_id = v_user_id;
+    UPDATE public.absensi SET libur_oleh = NULL WHERE libur_oleh = v_user_id;
+    UPDATE public.absensi SET dicatat_oleh = NULL WHERE dicatat_oleh = v_user_id;
+    UPDATE public.kas_settings SET diatur_oleh = NULL WHERE diatur_oleh = v_user_id;
+    UPDATE public.kas_pembayaran SET dicatat_oleh = NULL WHERE dicatat_oleh = v_user_id;
+    UPDATE public.keuangan_pembina SET created_by = NULL WHERE created_by = v_user_id;
+    UPDATE public.notulen SET dibuat_oleh = NULL WHERE dibuat_oleh = v_user_id;
+    UPDATE public.notulen SET disetujui_oleh = NULL WHERE disetujui_oleh = v_user_id;
+    UPDATE public.agenda_foto SET dibuat_oleh = NULL WHERE dibuat_oleh = v_user_id;
+    UPDATE public.agenda_foto SET diupdate_oleh = NULL WHERE diupdate_oleh = v_user_id;
+    UPDATE public.inventaris SET penanggung_jawab = NULL WHERE penanggung_jawab = v_user_id;
+    UPDATE public.inventaris_peminjaman SET dicatat_oleh = NULL WHERE dicatat_oleh = v_user_id;
+    UPDATE public.laporan_arsip SET generated_by = NULL WHERE generated_by = v_user_id;
+    UPDATE public.project SET penanggung_jawab = COALESCE(auth.uid(), (SELECT id FROM public.profiles WHERE role = 'administrator' LIMIT 1)) WHERE penanggung_jawab = v_user_id;
+    UPDATE public.produksi_video SET uploaded_by = COALESCE(auth.uid(), (SELECT id FROM public.profiles WHERE role = 'administrator' LIMIT 1)) WHERE uploaded_by = v_user_id;
+    UPDATE public.produksi_video SET approved_pembina_by = NULL WHERE approved_pembina_by = v_user_id;
+    UPDATE public.produksi_video SET approved_ketua_by = NULL WHERE approved_ketua_by = v_user_id;
+    UPDATE public.produksi_video SET penanggung_jawab_id = NULL WHERE penanggung_jawab_id = v_user_id;
+
+    DELETE FROM public.profiles WHERE id = v_user_id;
+    DELETE FROM auth.users WHERE id = v_user_id;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Akun berhasil dihapus permanen.', 'user_id', v_user_id);
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_user_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, extensions AS $$
+BEGIN
+    RETURN public.admin_delete_user(target_user_id::TEXT);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_delete_user(TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO anon, authenticated, service_role;
+
+DROP POLICY IF EXISTS "Profiles deletable by admin" ON public.profiles;
+CREATE POLICY "Profiles deletable by admin" ON public.profiles FOR DELETE TO authenticated USING (public.get_current_role() IN ('administrator', 'pembina'));`;
+
+    navigator.clipboard.writeText(sql);
+    setCopiedSQL(true);
+    setTimeout(() => setCopiedSQL(false), 3000);
+  };
 
   const handleDelete = async () => {
     if (isSelf) {
@@ -45,6 +132,7 @@ export function HapusUserModal({
     setIsLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    setNeedsMigration(false);
 
     try {
       const res = await fetch("/api/users/delete", {
@@ -56,7 +144,10 @@ export function HapusUserModal({
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Gagal menghapus akun pengguna.");
+        if (data.needsMigration) {
+          setNeedsMigration(true);
+        }
+        throw new Error(data.error || "Gagal menghapus akun pengguna dari database.");
       }
 
       // Update state lokal
@@ -137,8 +228,35 @@ export function HapusUserModal({
 
           {/* Feedback messages */}
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300">
-              {errorMsg}
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 space-y-2">
+              <p>{errorMsg}</p>
+              {needsMigration && (
+                <div className="pt-2 border-t border-rose-500/20 space-y-2">
+                  <p className="text-[11px] text-slate-300">
+                    Supabase memerlukan fungsi SQL <code className="text-amber-400 bg-surface-3 px-1 py-0.5 rounded">admin_delete_user</code> untuk menghapus akun dan relasi data secara tuntas.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopySQL}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-surface-2 hover:bg-surface-3 border border-studio-border-subtle text-white font-medium text-xs transition-colors"
+                  >
+                    {copiedSQL ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Query SQL Berhasil Disalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Salin Script SQL Penghapusan Akun</span>
+                      </>
+                    )}
+                  </button>
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    * Buka <strong>Supabase Dashboard &gt; SQL Editor &gt; New Query</strong>, tempel (paste), lalu klik <strong>Run</strong>.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
