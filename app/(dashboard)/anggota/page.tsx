@@ -62,14 +62,12 @@ export default function AnggotaPage() {
     anggotaList,
     setAnggotaList,
     pembinaList,
-    allUsers,
     logAction,
   } = useSession();
 
-  const [activeTab, setActiveTab] = useState<"tetap" | "ekskul" | "pembina" | "users">("tetap");
+  const [activeTab, setActiveTab] = useState<"tetap" | "ekskul" | "pembina">("tetap");
   const [searchQuery, setSearchQuery] = useState("");
   const [kelasFilter, setKelasFilter] = useState<"all" | "VII" | "VIII" | "IX">("all");
-  const [userRoleFilter, setUserRoleFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPembinaModalOpen, setIsPembinaModalOpen] = useState(false);
 
@@ -185,31 +183,6 @@ export default function AnggotaPage() {
       p.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter semua pengguna (termasuk filter khusus Ketua Divisi & Master Roles)
-  const filteredUsers = (allUsers || []).filter((u) => {
-    // 1. Role Filter
-    if (userRoleFilter !== "all") {
-      if (userRoleFilter === "ketua_divisi" && u.role !== "ketua_divisi") return false;
-      if (userRoleFilter === "pembina_admin" && u.role !== "pembina" && u.role !== "administrator") return false;
-      if (userRoleFilter === "pengurus" && !["ketua_broadcast", "sekretaris", "bendahara"].includes(u.role)) return false;
-      if (userRoleFilter === "kreatif_pj" && !["div_kreatif", "pj"].includes(u.role)) return false;
-      if (userRoleFilter === "anggota" && u.role !== "anggota") return false;
-    }
-
-    // 2. Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matches =
-        u.nama.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u.role.toLowerCase().includes(q) ||
-        (u.divisi && u.divisi.toLowerCase().includes(q));
-      if (!matches) return false;
-    }
-
-    return true;
-  });
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -310,14 +283,14 @@ export default function AnggotaPage() {
             </button>
           )}
 
-          {activeTab === "pembina" || activeTab === "users" ? (
+          {activeTab === "pembina" ? (
             isPembinaOrAdmin && (
               <button
                 onClick={() => setIsPembinaModalOpen(true)}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 min-h-[42px]"
               >
                 <Plus className="w-4 h-4 shrink-0" />
-                <span>+ Akun / Pembina</span>
+                <span>+ Tambah Pembina</span>
               </button>
             )
           ) : (
@@ -381,21 +354,6 @@ export default function AnggotaPage() {
             {pembinaList.length}
           </span>
         </button>
-
-        <button
-          onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border min-h-[38px] ${
-            activeTab === "users"
-              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-extrabold"
-              : "bg-surface-1 text-studio-text-secondary hover:text-white border-studio-border-subtle"
-          }`}
-        >
-          <Shield className="w-3.5 h-3.5" />
-          <span>Akun Pengguna</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400">
-            {(allUsers || []).length}
-          </span>
-        </button>
       </div>
 
       {/* Search & Quick Filter Bar */}
@@ -408,9 +366,7 @@ export default function AnggotaPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={
-              activeTab === "users"
-                ? "Cari nama, email, role..."
-                : activeTab === "pembina"
+              activeTab === "pembina"
                 ? "Cari nama, email pembina..."
                 : "Cari nama, NIS, kelas, jabatan, divisi..."
             }
@@ -443,204 +399,10 @@ export default function AnggotaPage() {
             ))}
           </div>
         )}
-
-        {activeTab === "users" && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {[
-              { id: "all", label: "Semua Akun", count: (allUsers || []).length },
-              {
-                id: "ketua_divisi",
-                label: "Ketua Divisi",
-                count: (allUsers || []).filter((u) => u.role === "ketua_divisi").length,
-              },
-              {
-                id: "pembina_admin",
-                label: "Pembina & Admin",
-                count: (allUsers || []).filter((u) => u.role === "pembina" || u.role === "administrator").length,
-              },
-              {
-                id: "pengurus",
-                label: "Pengurus Inti",
-                count: (allUsers || []).filter((u) => ["ketua_broadcast", "sekretaris", "bendahara"].includes(u.role)).length,
-              },
-              {
-                id: "kreatif_pj",
-                label: "Divisi & PJ",
-                count: (allUsers || []).filter((u) => ["div_kreatif", "pj"].includes(u.role)).length,
-              },
-              {
-                id: "anggota",
-                label: "Anggota",
-                count: (allUsers || []).filter((u) => u.role === "anggota").length,
-              },
-            ].map((rf) => (
-              <button
-                key={rf.id}
-                onClick={() => setUserRoleFilter(rf.id)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 ${
-                  userRoleFilter === rf.id
-                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold shadow-sm"
-                    : "bg-surface-1 text-slate-400 border-studio-border-subtle hover:text-white"
-                }`}
-              >
-                <span>{rf.label}</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-white/10 font-bold">
-                  {rf.count}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* ── Content: Semua Pengguna (Users) View ────────────────────────────── */}
-      {activeTab === "users" ? (
-        filteredUsers.length === 0 ? (
-          <div className="text-center py-12 px-4 rounded-2xl bg-surface-1 border border-studio-border-subtle border-dashed">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-3">
-              <Shield className="w-7 h-7" />
-            </div>
-            <h3 className="text-sm font-bold text-white">Tidak Ada Pengguna Ditemukan</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
-              {searchQuery
-                ? `Tidak ada akun yang cocok dengan kata kunci "${searchQuery}".`
-                : "Belum ada akun pengguna terdaftar di sistem."}
-            </p>
-            {isPembinaOrAdmin && (
-              <button
-                onClick={() => setIsPembinaModalOpen(true)}
-                className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg inline-flex items-center gap-2 min-h-[44px]"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Pengguna Baru</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-studio-text-secondary px-1">
-              <span>
-                Menampilkan <strong className="text-white">{filteredUsers.length}</strong> akun pengguna terdaftar
-              </span>
-              <span className="font-mono text-[11px] text-emerald-400 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Database Supabase Live
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredUsers.map((user) => {
-                const badge = getRoleBadge(user.role);
-                const isSelf = user.id === currentUser.id;
-                return (
-                  <div
-                    key={user.id}
-                    className={`p-4 sm:p-5 rounded-2xl bg-surface-1 border transition-all space-y-3 relative group ${
-                      isSelf
-                        ? "border-spectrum-cyan/50 shadow-cyan"
-                        : "border-studio-border-subtle hover:border-studio-border-medium"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${badge.className}`}>
-                        {badge.label}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        AKTIF
-                      </span>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-600/30 via-cyan-500/20 to-pink-600/30 border border-white/10 flex items-center justify-center text-white font-bold text-base shrink-0 shadow-sm">
-                        {user.nama ? user.nama.charAt(0).toUpperCase() : "U"}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-white leading-snug truncate">
-                            {user.nama}
-                          </h3>
-                          {isSelf && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-spectrum-cyan/20 text-spectrum-cyan border border-spectrum-cyan/40">
-                              Anda
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 truncate">
-                          <Mail className="w-3 h-3 text-slate-500 shrink-0" />
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle text-xs space-y-1.5 text-slate-300">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Hak Akses:</span>
-                        <span className="text-white font-semibold capitalize">{user.role.replace(/_/g, " ")}</span>
-                      </div>
-                      {user.divisi && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Divisi:</span>
-                          <span className="text-spectrum-cyan font-mono text-[11px]">{user.divisi}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center pt-1 border-t border-studio-border-subtle">
-                        <span className="text-slate-400 text-[10px]">User ID:</span>
-                        <span className="text-slate-400 font-mono text-[10px] truncate max-w-[140px]">{user.id}</span>
-                      </div>
-                    </div>
-
-                    {/* Baris Aksi Pengguna */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-studio-border-subtle">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDetailUser(user)}
-                        className="flex-1 px-2.5 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px]"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-spectrum-cyan" />
-                        <span>Detail</span>
-                      </button>
-
-                      {isPembinaOrAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEditUser(user)}
-                          title="Edit Akun Pengguna"
-                          className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-300 hover:text-white transition-all border border-studio-border-subtle hover:border-spectrum-cyan/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
-                        >
-                          <Edit className="w-3.5 h-3.5 text-spectrum-cyan" />
-                        </button>
-                      )}
-
-                      {canResetPassword && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedResetUser(user)}
-                          title="Reset Kata Sandi Akun"
-                          className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-all border border-amber-500/25 hover:border-amber-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
-                        >
-                          <Key className="w-3.5 h-3.5 text-amber-400" />
-                        </button>
-                      )}
-
-                      {currentUser.role === "administrator" && !isSelf && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDeleteUser(user)}
-                          title="Hapus Akun Pengguna"
-                          className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all border border-rose-500/25 hover:border-rose-500/40 min-h-[40px] min-w-[40px] flex items-center justify-center"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )
-      ) : activeTab === "pembina" ? (
+      {/* ── Content: Dewan Pembina View ─────────────────────────────────────── */}
+      {activeTab === "pembina" ? (
         filteredPembina.length === 0 ? (
           <div className="text-center py-12 px-4 rounded-2xl bg-surface-1 border border-studio-border-subtle border-dashed">
             <div className="w-14 h-14 rounded-2xl bg-violet-600/15 border border-violet-500/20 text-violet-400 mx-auto flex items-center justify-center mb-3">
@@ -650,8 +412,8 @@ export default function AnggotaPage() {
             <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
               Tambahkan guru pembina ekstrakurikuler untuk memberikan hak supervisi dan pengesahan naskah.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
-              {isPembinaOrAdmin && (
+            {isPembinaOrAdmin && (
+              <div className="mt-4">
                 <button
                   onClick={() => setIsPembinaModalOpen(true)}
                   className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg inline-flex items-center gap-2 min-h-[44px]"
@@ -659,15 +421,8 @@ export default function AnggotaPage() {
                   <Plus className="w-4 h-4" />
                   <span>+ Tambah Pembina Baru</span>
                 </button>
-              )}
-              <button
-                onClick={() => setActiveTab("users")}
-                className="px-4 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 text-xs font-semibold transition-all border border-studio-border-subtle inline-flex items-center gap-2 min-h-[44px]"
-              >
-                <Shield className="w-4 h-4 text-emerald-400" />
-                <span>Lihat Semua Akun Pengguna ({(allUsers || []).length})</span>
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
