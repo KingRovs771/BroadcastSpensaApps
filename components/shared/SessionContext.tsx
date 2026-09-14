@@ -17,9 +17,6 @@ import {
   KeuanganPembinaItem,
   AbsensiRecord,
   AuditLogItem,
-  MOCK_AUDIT_LOGS,
-  MOCK_USERS,
-  INITIAL_ANGGOTA,
 } from "@/lib/mock/store";
 
 // ─── Fallback guest profile ────────────────────────────────────────────────────
@@ -94,12 +91,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  // Data collections — populated with master data and synchronized with Supabase
-  const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>(INITIAL_ANGGOTA);
-  const [pembinaList, setPembinaList] = useState<UserProfile[]>(
-    MOCK_USERS.filter((u) => u.role === "pembina" || u.role === "administrator")
-  );
-  const [allUsers, setAllUsers] = useState<UserProfile[]>(MOCK_USERS);
+  // Data collections — initialized clean and synchronized live from Supabase
+  const [anggotaList, setAnggotaList] = useState<AnggotaRecord[]>([]);
+  const [pembinaList, setPembinaList] = useState<UserProfile[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [produksiList, setProduksiList] = useState<ProduksiVideo[]>([]);
   const [kasSettings, setKasSettings] = useState<KasSettings>({
     nominal: 2000,
@@ -113,7 +108,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [inventarisList, setInventarisList] = useState<InventarisItem[]>([]);
   const [notulenList, setNotulenList] = useState<NotulenItem[]>([]);
   const [keuanganPembinaList, setKeuanganPembinaList] = useState<KeuanganPembinaItem[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   // ── Fetch profile from Supabase profiles table ─────────────────────────────
   const fetchAndSetProfile = useCallback(async (userId: string) => {
@@ -145,20 +140,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       // 1. Anggota
       const { data: anggotaData } = await supabase.from("anggota").select("*");
-      if (anggotaData && anggotaData.length > 0) {
-        const dbNis = new Set(anggotaData.map((a: any) => a.nis));
-        const mergedAnggota = [
-          ...(anggotaData as AnggotaRecord[]),
-          ...INITIAL_ANGGOTA.filter((ia) => !dbNis.has(ia.nis)),
-        ];
-        setAnggotaList(mergedAnggota);
+      if (anggotaData) {
+        setAnggotaList(anggotaData as AnggotaRecord[]);
       } else {
-        setAnggotaList(INITIAL_ANGGOTA);
+        setAnggotaList([]);
       }
 
       // 2. Produksi
       const { data: produksiData } = await supabase.from("produksi_video").select("*");
-      if (produksiData) setProduksiList(produksiData as ProduksiVideo[]);
+      if (produksiData) {
+        setProduksiList(produksiData as ProduksiVideo[]);
+      } else {
+        setProduksiList([]);
+      }
 
       // 3. Kas Settings
       const { data: kasSettingsData } = await supabase
@@ -172,31 +166,59 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
       // 4. Kas Pembayaran
       const { data: kasPembayaranData } = await supabase.from("kas_pembayaran").select("*");
-      if (kasPembayaranData) setKasPembayaranList(kasPembayaranData as KasPembayaran[]);
+      if (kasPembayaranData) {
+        setKasPembayaranList(kasPembayaranData as KasPembayaran[]);
+      } else {
+        setKasPembayaranList([]);
+      }
 
       // 5. Absensi
       const { data: absensiData } = await supabase.from("absensi").select("*");
-      if (absensiData) setAbsensiList(absensiData as AbsensiRecord[]);
+      if (absensiData) {
+        setAbsensiList(absensiData as AbsensiRecord[]);
+      } else {
+        setAbsensiList([]);
+      }
 
       // 6. Project
       const { data: projectData } = await supabase.from("project").select("*");
-      if (projectData) setProjectList(projectData as ProjectKanban[]);
+      if (projectData) {
+        setProjectList(projectData as ProjectKanban[]);
+      } else {
+        setProjectList([]);
+      }
 
       // 7. Agenda Foto
       const { data: agendaFotoData } = await supabase.from("agenda_foto").select("*");
-      if (agendaFotoData) setAgendaFotoList(agendaFotoData as AgendaFoto[]);
+      if (agendaFotoData) {
+        setAgendaFotoList(agendaFotoData as AgendaFoto[]);
+      } else {
+        setAgendaFotoList([]);
+      }
 
       // 8. Inventaris
       const { data: inventarisData } = await supabase.from("inventaris").select("*");
-      if (inventarisData) setInventarisList(inventarisData as InventarisItem[]);
+      if (inventarisData) {
+        setInventarisList(inventarisData as InventarisItem[]);
+      } else {
+        setInventarisList([]);
+      }
 
       // 9. Notulen
       const { data: notulenData } = await supabase.from("notulen").select("*");
-      if (notulenData) setNotulenList(notulenData as NotulenItem[]);
+      if (notulenData) {
+        setNotulenList(notulenData as NotulenItem[]);
+      } else {
+        setNotulenList([]);
+      }
 
       // 10. Keuangan Pembina
       const { data: keuanganData } = await supabase.from("keuangan_pembina").select("*");
-      if (keuanganData) setKeuanganPembinaList(keuanganData as KeuanganPembinaItem[]);
+      if (keuanganData) {
+        setKeuanganPembinaList(keuanganData as KeuanganPembinaItem[]);
+      } else {
+        setKeuanganPembinaList([]);
+      }
 
       // 11. Audit Log
       const { data: auditData } = await supabase
@@ -204,7 +226,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
-      if (auditData && auditData.length > 0) {
+      if (auditData) {
         setAuditLogs(
           auditData.map((a: any) => ({
             id: a.id,
@@ -220,6 +242,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             timestamp: a.created_at,
           }))
         );
+      } else {
+        setAuditLogs([]);
       }
 
       // 12. Dewan Pembina & Administrator Profiles
@@ -228,39 +252,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .select("id, nama, email, role, divisi, signature_url")
         .in("role", ["pembina", "administrator"]);
 
-      const defaultPembina = MOCK_USERS.filter(
-        (u) => u.role === "pembina" || u.role === "administrator"
-      );
-      if (pembinaData && pembinaData.length > 0) {
-        const dbPembinaEmails = new Set(
-          pembinaData.map((p: any) => p.email?.toLowerCase()).filter(Boolean)
-        );
-        const mergedPembina = [
-          ...(pembinaData as UserProfile[]),
-          ...defaultPembina.filter((p) => !dbPembinaEmails.has(p.email.toLowerCase())),
-        ];
-        setPembinaList(mergedPembina);
+      if (pembinaData) {
+        setPembinaList(pembinaData as UserProfile[]);
       } else {
-        setPembinaList(defaultPembina);
+        setPembinaList([]);
       }
 
-      // 13. Semua Pengguna (All Users in Database including all 7 Ketua Divisi)
+      // 13. Semua Pengguna (All Users in Database including all Ketua Divisi)
       const { data: allProfilesData } = await supabase
         .from("profiles")
         .select("id, nama, email, role, divisi, signature_url")
         .order("created_at", { ascending: false });
 
-      if (allProfilesData && allProfilesData.length > 0) {
-        const dbUserEmails = new Set(
-          allProfilesData.map((u: any) => u.email?.toLowerCase()).filter(Boolean)
-        );
-        const mergedUsers = [
-          ...(allProfilesData as UserProfile[]),
-          ...MOCK_USERS.filter((mu) => !dbUserEmails.has(mu.email.toLowerCase())),
-        ];
-        setAllUsers(mergedUsers);
+      if (allProfilesData) {
+        setAllUsers(allProfilesData as UserProfile[]);
       } else {
-        setAllUsers(MOCK_USERS);
+        setAllUsers([]);
       }
     } catch (err) {
       console.error("Failed to load Supabase data:", err);
@@ -328,6 +335,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           setInventarisList([]);
           setNotulenList([]);
           setKeuanganPembinaList([]);
+          setPembinaList([]);
+          setAllUsers([]);
+          setAuditLogs([]);
         }
         setIsSessionLoading(false);
       }
@@ -359,6 +369,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setInventarisList([]);
     setNotulenList([]);
     setKeuanganPembinaList([]);
+    setPembinaList([]);
+    setAllUsers([]);
+    setAuditLogs([]);
   };
 
   // ── Audit logger ──────────────────────────────────────────────────────────

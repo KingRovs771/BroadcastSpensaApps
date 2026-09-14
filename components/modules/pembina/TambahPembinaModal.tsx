@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { useSession } from "@/components/shared/SessionContext";
 import { UserProfile, UserRole, DivisiName, AnggotaRecord } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
@@ -94,9 +95,9 @@ export function TambahPembinaModal({
     setIsLoading(true);
 
     try {
-      let userId = `usr-${Date.now()}`;
+      let userId = "";
 
-      // 1. Coba buat akun melalui API Admin (langsung terverifikasi tanpa kirim email)
+      // 1. Coba buat akun melalui API Admin (jika service role key tersedia)
       try {
         const createRes = await fetch("/api/users/create", {
           method: "POST",
@@ -115,43 +116,68 @@ export function TambahPembinaModal({
 
         const createData = await createRes.json();
 
-        if (!createRes.ok && createRes.status === 409) {
+        if (createRes.status === 409) {
           setErrorMsg("Email ini sudah terdaftar di sistem. Gunakan email lain.");
           setIsLoading(false);
           return;
         }
 
-        if (createRes.ok && createData.user?.id) {
+        if (createRes.ok && createData.user?.id && !createData.user.id.startsWith("usr-")) {
           userId = createData.user.id;
-        } else {
-          // Fallback ke Supabase Auth Client jika endpoint admin tidak merespons
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: email.trim().toLowerCase(),
-            password,
-            options: {
-              data: {
-                nama: nama.trim(),
-                role: selectedRole,
-                nip: nip.trim() || undefined,
-                jabatan: jabatanSekolah.trim(),
-                no_hp: noHp.trim() || undefined,
-                divisi: selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj" ? divisi : undefined,
-              },
-            },
-          });
-
-          if (authError && authError.message.includes("User already registered")) {
-            setErrorMsg("Email ini sudah terdaftar di sistem. Gunakan email lain.");
-            setIsLoading(false);
-            return;
-          }
-
-          if (authData?.user?.id) {
-            userId = authData.user.id;
-          }
         }
       } catch (err) {
-        console.warn("API create user exception, continuing with profile creation:", err);
+        console.warn("API create user exception, continuing with client fallback:", err);
+      }
+
+      // Fallback: Jika admin API tidak tersedia, gunakan isolated Supabase Auth Client
+      // (isolated client agar sesi admin yang sedang login TIDAK tertimpa)
+      if (!userId) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ovqhmfyoexuwhmkdunpz.supabase.co";
+        const supabaseAnonKey =
+          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+          "";
+
+        const isolatedClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+          },
+        });
+
+        const { data: authData, error: authError } = await isolatedClient.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            data: {
+              nama: nama.trim(),
+              role: selectedRole,
+              nip: nip.trim() || undefined,
+              jabatan: jabatanSekolah.trim(),
+              no_hp: noHp.trim() || undefined,
+              divisi: selectedRole === "div_kreatif" || selectedRole === "ketua_divisi" || selectedRole === "pj" ? divisi : undefined,
+            },
+          },
+        });
+
+        if (authError) {
+          if (authError.message.includes("User already registered") || authError.message.includes("already exists")) {
+            setErrorMsg("Email ini sudah terdaftar di sistem. Gunakan email lain.");
+          } else {
+            setErrorMsg(authError.message);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (!authData?.user?.id) {
+          setErrorMsg("Gagal mendaftarkan akun di Supabase Auth.");
+          setIsLoading(false);
+          return;
+        }
+
+        userId = authData.user.id;
       }
 
       // 2. Simpan atau pastikan profil ada di public.profiles
