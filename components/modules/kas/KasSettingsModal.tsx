@@ -13,7 +13,7 @@ interface KasSettingsModalProps {
 }
 
 export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
-  const { kasSettings, setKasSettings, logAction } = useSession();
+  const { currentUser, kasSettings, refreshData, logAction, supabase } = useSession();
 
   const [nominal, setNominal] = useState<number>(kasSettings.nominal);
   const [periodeType, setPeriodeType] = useState<"mingguan" | "dwimingguan">(
@@ -23,11 +23,15 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
     kasSettings.effective_from
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+    setIsSubmitting(true);
+
     const result = kasSettingsSchema.safeParse({
       nominal: Number(nominal),
       periode_type: periodeType,
@@ -36,22 +40,39 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
 
     if (!result.success) {
       setErrorMsg(result.error.errors[0]?.message || "Input tidak valid");
+      setIsSubmitting(false);
       return;
     }
 
-    setKasSettings({
-      nominal: Number(nominal),
-      periode_type: periodeType,
-      effective_from: effectiveFrom,
-    });
+    try {
+      const { error } = await supabase.from("kas_settings").insert({
+        nominal: Number(nominal),
+        periode_type: periodeType,
+        effective_from: effectiveFrom,
+        diatur_oleh: currentUser.id,
+      });
 
-    logAction(
-      "UPDATE_KAS_RULES",
-      "kas_settings",
-      `Nominal: ${nominal}, Periode: ${periodeType}, Efektif: ${effectiveFrom}`
-    );
+      if (error) {
+        console.error("Supabase insert kas_settings error:", error);
+        setErrorMsg(`Gagal menyimpan aturan kas: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
 
-    onClose();
+      await refreshData();
+      logAction(
+        "UPDATE_KAS_RULES",
+        "kas_settings",
+        `Nominal: ${nominal}, Periode: ${periodeType}, Efektif: ${effectiveFrom}`
+      );
+
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

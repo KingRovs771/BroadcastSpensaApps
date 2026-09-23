@@ -78,6 +78,7 @@ interface SessionContextType {
 
   auditLogs: AuditLogItem[];
   logAction: (action: string, targetTable: string, targetId?: string, details?: string) => void;
+  supabase: any;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -281,6 +282,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoggedIn, loadAllDatabaseData]);
 
+  // Realtime subscription for live multi-user synchronization
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const channel = supabase
+      .channel("studio-db-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+        },
+        () => {
+          loadAllDatabaseData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isLoggedIn, supabase, loadAllDatabaseData]);
+
   // ── Restore session on mount via Supabase onAuthStateChange ───────────────
   useEffect(() => {
     let mounted = true;
@@ -463,6 +487,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setAllUsers,
         auditLogs,
         logAction,
+        supabase,
       }}
     >
       {children}

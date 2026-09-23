@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function NotulenPage() {
-  const { currentUser, notulenList, setNotulenList, logAction } = useSession();
+  const { currentUser, notulenList, allUsers, refreshData, logAction, supabase } = useSession();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNotulenForView, setSelectedNotulenForView] = useState<NotulenItem | null>(null);
@@ -29,69 +29,94 @@ export default function NotulenPage() {
   const [agenda, setAgenda] = useState("");
   const [isiNotulen, setIsiNotulen] = useState("");
   const [keputusan, setKeputusan] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
   const isKetuaOrAdmin =
     currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    const newNotulen: NotulenItem = {
-      id: `not-${Date.now()}`,
-      judul,
-      tanggal_rapat: tanggal,
-      tempat,
-      agenda,
-      isi_notulen: isiNotulen,
-      keputusan,
-      status: "draft",
-      dibuat_oleh: `${currentUser.nama} (Sekretaris)`,
-    };
+    try {
+      const { data, error } = await supabase
+        .from("notulen")
+        .insert({
+          judul,
+          tanggal_rapat: tanggal,
+          tempat,
+          agenda,
+          isi_notulen: isiNotulen,
+          keputusan,
+          status: "draft",
+          dibuat_oleh: currentUser.id,
+        })
+        .select()
+        .single();
 
-    setNotulenList((prev) => [newNotulen, ...prev]);
-    logAction(
-      "CREATE_NOTULEN",
-      "notulen",
-      newNotulen.id,
-      `Sekretaris membuat draft notulen: ${judul}`
-    );
+      if (error) {
+        console.error("Supabase insert notulen error:", error);
+        alert(`Gagal membuat notulen: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
 
-    // Reset
-    setJudul("");
-    setAgenda("");
-    setIsiNotulen("");
-    setKeputusan("");
-    setIsModalOpen(false);
+      await refreshData();
+      logAction(
+        "CREATE_NOTULEN",
+        "notulen",
+        data?.id || "new",
+        `Sekretaris membuat draft notulen: ${judul}`
+      );
+
+      // Reset
+      setJudul("");
+      setAgenda("");
+      setIsiNotulen("");
+      setKeputusan("");
+      setIsModalOpen(false);
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleFinalizeLock = (notulenId: string) => {
+  const handleFinalizeLock = async (notulenId: string) => {
     if (!isKetuaOrAdmin) {
       alert("Hanya Ketua Broadcast yang berwenang mengesahkan dan mengunci risalah rapat!");
       return;
     }
 
-    setNotulenList((prev) =>
-      prev.map((n) => {
-        if (n.id === notulenId) {
-          return {
-            ...n,
-            status: "final",
-            disetujui_oleh: `${currentUser.nama} (Ketua Broadcast)`,
-            disetujui_at: new Date().toISOString(),
-          };
-        }
-        return n;
-      })
-    );
+    try {
+      const { error } = await supabase
+        .from("notulen")
+        .update({
+          status: "final",
+          disetujui_oleh: currentUser.id,
+          disetujui_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", notulenId);
 
-    logAction(
-      "FINALIZE_NOTULEN",
-      "notulen",
-      notulenId,
-      `Ketua Broadcast mengesahkan status FINAL notulen rapat`
-    );
+      if (error) {
+        console.error("Supabase finalize notulen error:", error);
+        alert(`Gagal mengesahkan notulen: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "FINALIZE_NOTULEN",
+        "notulen",
+        notulenId,
+        `Ketua Broadcast mengesahkan status FINAL notulen rapat`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   return (
@@ -192,10 +217,10 @@ export default function NotulenPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px] font-mono text-studio-text-muted">
-                <span>Dibuat: {notulen.dibuat_oleh}</span>
+                <span>Dibuat: {allUsers.find((u) => u.id === notulen.dibuat_oleh)?.nama || notulen.dibuat_oleh || "Sekretaris"}</span>
                 {notulen.disetujui_oleh && (
                   <span className="text-spectrum-jade font-semibold">
-                    ✓ Disahkan: {notulen.disetujui_oleh}
+                    ✓ Disahkan: {allUsers.find((u) => u.id === notulen.disetujui_oleh)?.nama || notulen.disetujui_oleh || "Ketua Broadcast"}
                   </span>
                 )}
               </div>

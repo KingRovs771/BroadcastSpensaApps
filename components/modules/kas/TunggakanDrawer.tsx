@@ -21,58 +21,83 @@ export function TunggakanDrawer({
   isOpen,
   onClose,
 }: TunggakanDrawerProps) {
-  const { setKasPembayaranList, logAction, currentUser } = useSession();
+  const { refreshData, logAction, currentUser, supabase } = useSession();
 
   const [tanggalBayar, setTanggalBayar] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+  const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen || !anggota) return null;
 
   const totalTunggakan = tunggakanList.reduce((sum, item) => sum + item.nominal, 0);
 
-  const handleSettleSingle = (id: string, periodeLabel: string) => {
-    setKasPembayaranList((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status: "lunas",
-              tanggal_bayar: tanggalBayar,
-              dicatat_oleh: currentUser.nama,
-            }
-          : item
-      )
-    );
-    logAction(
-      "bayar_kas",
-      "kas_pembayaran",
-      `Pembayaran kas tertunggak ${periodeLabel} anggota ${anggota.nama_lengkap} dicatat lunas pada tanggal ${tanggalBayar}`
-    );
+  const handleSettleSingle = async (id: string, periodeLabel: string) => {
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("kas_pembayaran")
+        .update({
+          status: "lunas",
+          tanggal_bayar: new Date(tanggalBayar).toISOString(),
+          dicatat_oleh: currentUser.id,
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error settling single kas:", error);
+        alert(`Gagal melunasi kas: ${error.message}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "bayar_kas",
+        "kas_pembayaran",
+        `Pembayaran kas tertunggak ${periodeLabel} anggota ${anggota.nama_lengkap} dicatat lunas pada tanggal ${tanggalBayar}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleSettleAll = () => {
+  const handleSettleAll = async () => {
     const tunggakanIds = tunggakanList.map((t) => t.id);
-    setKasPembayaranList((prev) =>
-      prev.map((item) =>
-        tunggakanIds.includes(item.id)
-          ? {
-              ...item,
-              status: "lunas",
-              tanggal_bayar: tanggalBayar,
-              dicatat_oleh: currentUser.nama,
-            }
-          : item
-      )
-    );
-    logAction(
-      "quick_settle_kas",
-      "kas_pembayaran",
-      `Quick Settle borongan kas ${tunggakanList.length} periode (${formatIDR(
-        totalTunggakan
-      )}) anggota ${anggota.nama_lengkap} dicatat lunas pada tanggal ${tanggalBayar}`
-    );
-    onClose();
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("kas_pembayaran")
+        .update({
+          status: "lunas",
+          tanggal_bayar: new Date(tanggalBayar).toISOString(),
+          dicatat_oleh: currentUser.id,
+        })
+        .in("id", tunggakanIds);
+
+      if (error) {
+        console.error("Error settling all kas:", error);
+        alert(`Gagal melunasi tunggakan borongan: ${error.message}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "quick_settle_kas",
+        "kas_pembayaran",
+        `Quick Settle borongan kas ${tunggakanList.length} periode (${formatIDR(
+          totalTunggakan
+        )}) anggota ${anggota.nama_lengkap} dicatat lunas pada tanggal ${tanggalBayar}`
+      );
+      onClose();
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

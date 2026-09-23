@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Clock,
   Calendar,
+  CalendarPlus,
 } from "lucide-react";
 
 export default function KasPage() {
@@ -25,8 +26,9 @@ export default function KasPage() {
     anggotaList,
     kasSettings,
     kasPembayaranList,
-    setKasPembayaranList,
+    refreshData,
     logAction,
+    supabase,
   } = useSession();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,6 +38,7 @@ export default function KasPage() {
   const [selectedAnggotaForDrawer, setSelectedAnggotaForDrawer] =
     useState<AnggotaRecord | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isGeneratingPeriods, setIsGeneratingPeriods] = useState(false);
 
   const isBendaharaOrAdmin =
     currentUser.role === "bendahara" || currentUser.role === "administrator";
@@ -56,37 +59,119 @@ export default function KasPage() {
   );
 
   // Toggle Single Period Payment
-  const handleTogglePayment = (anggotaId: string, periodeLabel: string) => {
+  const handleTogglePayment = async (anggotaId: string, periodeLabel: string) => {
     if (!isBendaharaOrAdmin) {
       alert("Hanya Bendahara yang memiliki otorisasi mencatat pembayaran iuran kas!");
       return;
     }
 
-    setKasPembayaranList((prev) =>
-      prev.map((item) => {
-        if (item.anggota_id === anggotaId && item.periode_label === periodeLabel) {
-          const nextStatus = item.status === "lunas" ? "belum" : "lunas";
-          return {
-            ...item,
-            status: nextStatus,
-            tanggal_bayar:
-              nextStatus === "lunas"
-                ? new Date(selectedTanggalBayar).toISOString()
-                : undefined,
-            dicatat_oleh: nextStatus === "lunas" ? currentUser.id : undefined,
-          };
-        }
-        return item;
-      })
+    const currentItem = kasPembayaranList.find(
+      (item) => item.anggota_id === anggotaId && item.periode_label === periodeLabel
     );
 
-    const targetAnggota = anggotaList.find((a) => a.id === anggotaId);
-    logAction(
-      "TOGGLE_KAS_CHECKBOX",
-      "kas_pembayaran",
-      anggotaId,
-      `Bendahara mengubah status ${periodeLabel} untuk ${targetAnggota?.nama_lengkap} (Tanggal: ${selectedTanggalBayar})`
-    );
+    if (!currentItem) return;
+
+    const nextStatus = currentItem.status === "lunas" ? "belum" : "lunas";
+    const tanggalBayar = nextStatus === "lunas" ? new Date(selectedTanggalBayar).toISOString() : null;
+    const dicatatOleh = nextStatus === "lunas" ? currentUser.id : null;
+
+    try {
+      const { error } = await supabase
+        .from("kas_pembayaran")
+        .update({
+          status: nextStatus,
+          tanggal_bayar: tanggalBayar,
+          dicatat_oleh: dicatatOleh,
+        })
+        .eq("id", currentItem.id);
+
+      if (error) {
+        console.error("Error updating kas pembayaran:", error);
+        alert(`Gagal memperbarui status kas: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      const targetAnggota = anggotaList.find((a) => a.id === anggotaId);
+      logAction(
+        "TOGGLE_KAS_CHECKBOX",
+        "kas_pembayaran",
+        anggotaId,
+        `Bendahara mengubah status ${periodeLabel} untuk ${targetAnggota?.nama_lengkap || anggotaId} menjadi ${nextStatus.toUpperCase()} (Tanggal: ${selectedTanggalBayar})`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
+  };
+
+  const handleInitDefaultPeriods = async () => {
+    if (!isBendaharaOrAdmin && !isKetuaOrAdmin) {
+      alert("Hanya Bendahara, Ketua Broadcast, atau Admin yang berwenang menginisialisasi periode kas!");
+      return;
+    }
+
+    setIsGeneratingPeriods(true);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    ];
+    const monthStr = monthNames[month - 1];
+    const nominal = kasSettings.nominal || 2000;
+
+    const weeks = [
+      { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-07`, label: `W1 ${monthStr}` },
+      { start: `${year}-${String(month).padStart(2, "0")}-08`, end: `${year}-${String(month).padStart(2, "0")}-14`, label: `W2 ${monthStr}` },
+      { start: `${year}-${String(month).padStart(2, "0")}-15`, end: `${year}-${String(month).padStart(2, "0")}-21`, label: `W3 ${monthStr}` },
+      { start: `${year}-${String(month).padStart(2, "0")}-22`, end: `${year}-${String(month).padStart(2, "0")}-28`, label: `W4 ${monthStr}` },
+    ];
+
+    const activeMembers = anggotaList.filter((a) => a.status === "aktif");
+    if (activeMembers.length === 0) {
+      alert("Tidak ada anggota berstatus aktif untuk dibuatkan periode kas.");
+      setIsGeneratingPeriods(false);
+      return;
+    }
+
+    const inserts: any[] = [];
+    for (const mem of activeMembers) {
+      for (const w of weeks) {
+        inserts.push({
+          anggota_id: mem.id,
+          periode_start: w.start,
+          periode_end: w.end,
+          periode_label: w.label,
+          nominal,
+          status: "belum",
+        });
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from("kas_pembayaran")
+        .upsert(inserts, { onConflict: "anggota_id,periode_start" });
+
+      if (error) {
+        console.error("Error creating kas periods:", error);
+        alert(`Gagal membuat periode kas: ${error.message}`);
+        setIsGeneratingPeriods(false);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "INIT_KAS_PERIODS",
+        "kas_pembayaran",
+        `Inisialisasi 4 periode kas ${monthStr} ${year}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsGeneratingPeriods(false);
+    }
   };
 
   const handleExportCSV = () => {
@@ -138,6 +223,18 @@ export default function KasPage() {
             <Download className="w-4 h-4 text-spectrum-cobalt" />
             <span>Ekspor CSV</span>
           </button>
+
+          {isBendaharaOrAdmin && (
+            <button
+              onClick={handleInitDefaultPeriods}
+              disabled={isGeneratingPeriods}
+              aria-label="Inisialisasi Periode Kas Bulan Ini"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-spectrum-cyan hover:bg-sky-400 text-cosmic text-xs font-bold transition-all shadow-cyan min-h-[44px]"
+            >
+              <CalendarPlus className="w-4 h-4" />
+              <span>{isGeneratingPeriods ? "Memproses..." : "Inisialisasi Periode"}</span>
+            </button>
+          )}
 
           {isKetuaOrAdmin && (
             <button

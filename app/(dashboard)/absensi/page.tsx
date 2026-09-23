@@ -20,12 +20,15 @@ export default function AbsensiPage() {
     currentUser,
     anggotaList,
     absensiList,
-    setAbsensiList,
+    refreshData,
     logAction,
+    supabase,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<"tetap" | "ekskul">("tetap");
-  const [selectedDate, setSelectedDate] = useState<string>("2026-08-08");
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
 
   const isSekretarisOrAdmin =
@@ -73,7 +76,7 @@ export default function AbsensiPage() {
   ];
 
   // Set single attendance status
-  const handleSetStatus = (
+  const handleSetStatus = async (
     anggotaId: string,
     status: "masuk" | "izin" | "sakit" | "alpha"
   ) => {
@@ -83,87 +86,113 @@ export default function AbsensiPage() {
     }
 
     if (!isSekretarisOrAdmin) {
-      alert("Hanya Sekretaris yang berwenang mencatat presensi kehadiran mingguan!");
+      alert("Hanya Sekretaris atau Admin yang berwenang mencatat presensi kehadiran mingguan!");
       return;
     }
 
-    setAbsensiList((prev) => {
-      const existing = prev.find(
-        (a) =>
-          a.anggota_id === anggotaId &&
-          a.tanggal === selectedDate &&
-          a.anggota_tipe === activeTab
-      );
-
-      if (existing) {
-        return prev.map((a) =>
-          a.id === existing.id
-            ? { ...a, status, dicatat_oleh: currentUser.id }
-            : a
+    try {
+      const { error } = await supabase
+        .from("absensi")
+        .upsert(
+          {
+            anggota_id: anggotaId,
+            anggota_tipe: activeTab,
+            tanggal: selectedDate,
+            pertemuan_ke: 1,
+            status,
+            is_libur: false,
+            dicatat_oleh: currentUser.id,
+          },
+          { onConflict: "anggota_id,tanggal,anggota_tipe" }
         );
-      } else {
-        const newRecord: AbsensiRecord = {
-          id: `ab-${Date.now()}-${Math.random().toString(36).substring(2, 4)}`,
-          anggota_id: anggotaId,
-          anggota_tipe: activeTab,
-          tanggal: selectedDate,
-          pertemuan_ke: 1,
-          status,
-          is_libur: false,
-          dicatat_oleh: currentUser.id,
-        };
-        return [...prev, newRecord];
-      }
-    });
 
-    const ang = anggotaList.find((a) => a.id === anggotaId);
-    logAction(
-      "UPDATE_ABSENSI",
-      "absensi",
-      anggotaId,
-      `Sekretaris menandai status ${status.toUpperCase()} untuk ${ang?.nama_lengkap}`
-    );
+      if (error) {
+        console.error("Error updating absensi:", error);
+        alert(`Gagal menyimpan absensi: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      const ang = anggotaList.find((a) => a.id === anggotaId);
+      logAction(
+        "UPDATE_ABSENSI",
+        "absensi",
+        anggotaId,
+        `Sekretaris menandai status ${status.toUpperCase()} untuk ${ang?.nama_lengkap || anggotaId}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   // Declare Holiday
-  const handleDeclareHoliday = (alasan: string) => {
-    setAbsensiList((prev) => {
-      // Mark all existing records for this date as holiday or insert
-      const updated = prev.filter((a) => a.tanggal !== selectedDate);
-      const holidayRecords: AbsensiRecord[] = anggotaList.map((ang) => ({
-        id: `ab-libur-${ang.id}-${selectedDate}`,
-        anggota_id: ang.id,
-        anggota_tipe: ang.tipe,
-        tanggal: selectedDate,
-        pertemuan_ke: 1,
-        status: "izin",
-        is_libur: true,
-        libur_oleh: currentUser.id,
-        libur_alasan: alasan,
-      }));
-      return [...updated, ...holidayRecords];
-    });
+  const handleDeclareHoliday = async (alasan: string) => {
+    if (!isPembinaOrKetua) {
+      alert("Hanya Pembina atau Ketua yang berwenang mendeklarasikan libur!");
+      return;
+    }
 
-    logAction(
-      "DECLARE_HOLIDAY",
-      "absensi",
-      undefined,
-      `${currentUser.nama} mendeklarasikan pekan libur pada ${selectedDate}: ${alasan}`
-    );
+    const holidayRecords = anggotaList.map((ang) => ({
+      anggota_id: ang.id,
+      anggota_tipe: ang.tipe,
+      tanggal: selectedDate,
+      pertemuan_ke: 1,
+      status: "izin",
+      is_libur: true,
+      libur_oleh: currentUser.id,
+      libur_alasan: alasan,
+    }));
+
+    try {
+      const { error } = await supabase
+        .from("absensi")
+        .upsert(holidayRecords, { onConflict: "anggota_id,tanggal,anggota_tipe" });
+
+      if (error) {
+        console.error("Error declaring holiday:", error);
+        alert(`Gagal mendeklarasikan libur: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "DECLARE_HOLIDAY",
+        "absensi",
+        undefined,
+        `${currentUser.nama} mendeklarasikan pekan libur pada ${selectedDate}: ${alasan}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   // Cancel Holiday
-  const handleCancelHoliday = () => {
+  const handleCancelHoliday = async () => {
     if (!isPembinaOrKetua) return;
-    setAbsensiList((prev) =>
-      prev.filter((a) => !(a.tanggal === selectedDate && a.is_libur))
-    );
-    logAction(
-      "CANCEL_HOLIDAY",
-      "absensi",
-      undefined,
-      `Membatalkan status pekan libur pada ${selectedDate}`
-    );
+
+    try {
+      const { error } = await supabase
+        .from("absensi")
+        .delete()
+        .eq("tanggal", selectedDate)
+        .eq("is_libur", true);
+
+      if (error) {
+        console.error("Error cancelling holiday:", error);
+        alert(`Gagal membatalkan status libur: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "CANCEL_HOLIDAY",
+        "absensi",
+        undefined,
+        `Membatalkan status pekan libur pada ${selectedDate}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   // Calculate Attendance Percentage for current tab

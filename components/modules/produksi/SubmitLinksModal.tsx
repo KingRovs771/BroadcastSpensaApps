@@ -13,40 +13,52 @@ interface SubmitLinksModalProps {
 }
 
 export function SubmitLinksModal({ item, isOpen, onClose }: SubmitLinksModalProps) {
-  const { setProduksiList, logAction } = useSession();
+  const { refreshData, logAction, supabase } = useSession();
 
   const [thumbnailUrl, setThumbnailUrl] = useState(item.thumbnail_url || "");
   const [videoUrl, setVideoUrl] = useState(item.video_url || "");
   const [audioUrl, setAudioUrl] = useState(item.audio_url || "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    setProduksiList((prev) =>
-      prev.map((p) => {
-        if (p.id === item.id) {
-          return {
-            ...p,
-            thumbnail_url: thumbnailUrl || undefined,
-            video_url: videoUrl || undefined,
-            audio_url: audioUrl || undefined,
-            status: "pending_divisi", // Moves to pending curation by Ketua Divisi
-          };
-        }
-        return p;
-      })
-    );
+    try {
+      const { error } = await supabase
+        .from("produksi_video")
+        .update({
+          thumbnail_url: thumbnailUrl || null,
+          video_url: videoUrl || null,
+          audio_url: audioUrl || null,
+          status: "pending_divisi",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
 
-    logAction(
-      "SUBMIT_PRODUKSI_LINKS",
-      "produksi_video",
-      item.id,
-      `PJ mengunggah link media untuk ${item.judul}`
-    );
+      if (error) {
+        console.error("Error submitting links:", error);
+        alert(`Gagal mengirimkan link: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
 
-    onClose();
+      await refreshData();
+      logAction(
+        "SUBMIT_PRODUKSI_LINKS",
+        "produksi_video",
+        item.id,
+        `PJ mengunggah link media untuk ${item.judul}`
+      );
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

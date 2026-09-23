@@ -17,7 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function AgendaFotoPage() {
-  const { currentUser, agendaFotoList, setAgendaFotoList, logAction } =
+  const { currentUser, agendaFotoList, refreshData, logAction, supabase } =
     useSession();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,6 +27,7 @@ export default function AgendaFotoPage() {
   const [tingkat, setTingkat] = useState<AgendaFoto["tingkat"]>("kota");
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
   const [keterangan, setKeterangan] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
@@ -35,37 +36,55 @@ export default function AgendaFotoPage() {
     (currentUser.role === "ketua_divisi" && currentUser.divisi === "Fotografer") ||
     currentUser.role === "administrator";
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    const newItem: AgendaFoto = {
-      id: `foto-${Date.now()}`,
-      nama_siswa: namaSiswa,
-      kelas,
-      kejuaraan,
-      tingkat,
-      tanggal,
-      status: "belum",
-      keterangan,
-      divisi: "Fotografer",
-    };
+    try {
+      const { data, error } = await supabase
+        .from("agenda_foto")
+        .insert({
+          nama_siswa: namaSiswa,
+          kelas,
+          kejuaraan,
+          tingkat,
+          tanggal,
+          status: "belum",
+          keterangan: keterangan || null,
+          divisi: "Fotografer",
+          dibuat_oleh: currentUser.id,
+        })
+        .select()
+        .single();
 
-    setAgendaFotoList((prev) => [newItem, ...prev]);
-    logAction(
-      "CREATE_AGENDA_FOTO",
-      "agenda_foto",
-      newItem.id,
-      `Mendaftarkan agenda dokumentasi lomba: ${kejuaraan} (${namaSiswa})`
-    );
+      if (error) {
+        console.error("Supabase insert agenda_foto error:", error);
+        alert(`Gagal mendaftarkan kejuaraan: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
 
-    setNamaSiswa("");
-    setKelas("");
-    setKejuaraan("");
-    setKeterangan("");
-    setIsModalOpen(false);
+      await refreshData();
+      logAction(
+        "CREATE_AGENDA_FOTO",
+        "agenda_foto",
+        data?.id || "new",
+        `Mendaftarkan agenda dokumentasi lomba: ${kejuaraan} (${namaSiswa})`
+      );
+
+      setNamaSiswa("");
+      setKelas("");
+      setKejuaraan("");
+      setKeterangan("");
+      setIsModalOpen(false);
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleToggleStatus = (item: AgendaFoto) => {
+  const handleToggleStatus = async (item: AgendaFoto) => {
     if (!isKetuaFotografer) {
       alert("Hanya Ketua Divisi Fotografer yang berhak memperbarui status dokumentasi liputan lomba!");
       return;
@@ -73,16 +92,32 @@ export default function AgendaFotoPage() {
 
     const nextStatus = item.status === "sudah" ? "belum" : "sudah";
 
-    setAgendaFotoList((prev) =>
-      prev.map((f) => (f.id === item.id ? { ...f, status: nextStatus } : f))
-    );
+    try {
+      const { error } = await supabase
+        .from("agenda_foto")
+        .update({
+          status: nextStatus,
+          diupdate_oleh: currentUser.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
 
-    logAction(
-      "CURATE_AGENDA_FOTO",
-      "agenda_foto",
-      item.id,
-      `Ketua Divisi Fotografer mengubah status dokumentasi ${item.kejuaraan} menjadi ${nextStatus.toUpperCase()}`
-    );
+      if (error) {
+        console.error("Supabase update agenda_foto error:", error);
+        alert(`Gagal memperbarui status: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "CURATE_AGENDA_FOTO",
+        "agenda_foto",
+        item.id,
+        `Ketua Divisi Fotografer mengubah status dokumentasi ${item.kejuaraan} menjadi ${nextStatus.toUpperCase()}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   return (

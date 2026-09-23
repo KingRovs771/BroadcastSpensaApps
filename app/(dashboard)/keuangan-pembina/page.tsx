@@ -20,7 +20,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function KeuanganPembinaPage() {
-  const { currentUser, keuanganPembinaList, setKeuanganPembinaList, logAction } =
+  const { currentUser, keuanganPembinaList, refreshData, logAction, supabase } =
     useSession();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,6 +29,7 @@ export default function KeuanganPembinaPage() {
   const [nominal, setNominal] = useState(0);
   const [keterangan, setKeterangan] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPrivileged = [
     "pembina",
@@ -65,31 +66,54 @@ export default function KeuanganPembinaPage() {
   const totalPengeluaran = keuanganPembinaList.reduce((sum, item) => sum + item.pengeluaran, 0);
   const saldoBersih = totalPemasukan - totalPengeluaran;
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (nominal <= 0) {
+      alert("Nominal transaksi harus lebih dari 0");
+      return;
+    }
 
-    const newItem: KeuanganPembinaItem = {
-      id: `kp-${Date.now()}`,
-      tanggal: new Date().toISOString().split("T")[0],
-      sumber_dana: sumberDana,
-      keterangan,
-      pemasukan: tipeTransaksi === "masuk" ? nominal : 0,
-      pengeluaran: tipeTransaksi === "keluar" ? nominal : 0,
-      catatan_pembina: catatan || undefined,
-    };
+    setIsSubmitting(true);
 
-    setKeuanganPembinaList((prev) => [newItem, ...prev]);
-    logAction(
-      "CREATE_KEUANGAN_PEMBINA",
-      "keuangan_pembina",
-      newItem.id,
-      `Pembina mencatat ${tipeTransaksi === "masuk" ? "pemasukan" : "pengeluaran"} ${formatIDR(nominal)}: ${keterangan}`
-    );
+    try {
+      const { data, error } = await supabase
+        .from("keuangan_pembina")
+        .insert({
+          tanggal: new Date().toISOString().split("T")[0],
+          sumber_dana: sumberDana,
+          keterangan,
+          pemasukan: tipeTransaksi === "masuk" ? Number(nominal) : 0,
+          pengeluaran: tipeTransaksi === "keluar" ? Number(nominal) : 0,
+          catatan_pembina: catatan || null,
+          created_by: currentUser.id,
+        })
+        .select()
+        .single();
 
-    setNominal(0);
-    setKeterangan("");
-    setCatatan("");
-    setIsModalOpen(false);
+      if (error) {
+        console.error("Supabase insert keuangan_pembina error:", error);
+        alert(`Gagal mencatat transaksi: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "CREATE_KEUANGAN_PEMBINA",
+        "keuangan_pembina",
+        data?.id || "new",
+        `Pembina mencatat ${tipeTransaksi === "masuk" ? "pemasukan" : "pengeluaran"} ${formatIDR(nominal)}: ${keterangan}`
+      );
+
+      setNominal(0);
+      setKeterangan("");
+      setCatatan("");
+      setIsModalOpen(false);
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

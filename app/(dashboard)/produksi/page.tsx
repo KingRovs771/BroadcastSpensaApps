@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 export default function ProduksiPage() {
-  const { currentUser, produksiList, setProduksiList, anggotaList, logAction } =
+  const { currentUser, produksiList, allUsers, refreshData, logAction, supabase } =
     useSession();
 
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "in_production" | "done">("all");
@@ -52,32 +52,40 @@ export default function ProduksiPage() {
   });
 
   // Action: Assign PJ (only when status is approved)
-  const handleAssignPJ = (prodId: string, pjUserId: string) => {
-    const pjAnggota = anggotaList.find((u) => u.id === pjUserId);
-    const pjName = pjAnggota?.nama_lengkap ?? pjUserId;
-    setProduksiList((prev) =>
-      prev.map((p) => {
-        if (p.id === prodId) {
-          return {
-            ...p,
-            status: "in_production",
-            penanggung_jawab_id: pjUserId,
-            pj_name: pjName,
-          };
-        }
-        return p;
-      })
-    );
-    logAction(
-      "ASSIGN_PJ",
-      "produksi_video",
-      prodId,
-      `Menugaskan PJ: ${pjName}`
-    );
+  const handleAssignPJ = async (prodId: string, pjUserId: string) => {
+    const pjUser = allUsers.find((u) => u.id === pjUserId);
+    const pjName = pjUser?.nama ?? pjUserId;
+
+    try {
+      const { error } = await supabase
+        .from("produksi_video")
+        .update({
+          status: "in_production",
+          penanggung_jawab_id: pjUserId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", prodId);
+
+      if (error) {
+        console.error("Error assigning PJ:", error);
+        alert(`Gagal menugaskan PJ: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "ASSIGN_PJ",
+        "produksi_video",
+        prodId,
+        `Menugaskan PJ: ${pjName}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   // Action: Final Curate by Ketua Divisi
-  const handleFinalCurate = (prod: ProduksiVideo) => {
+  const handleFinalCurate = async (prod: ProduksiVideo) => {
     const isMatchingKetuaDivisi =
       (currentUser.role === "ketua_divisi" && currentUser.divisi === prod.divisi) ||
       currentUser.role === "administrator";
@@ -87,50 +95,66 @@ export default function ProduksiPage() {
       return;
     }
 
-    setProduksiList((prev) =>
-      prev.map((p) => {
-        if (p.id === prod.id) {
-          return {
-            ...p,
-            status: "published",
-            published_at: new Date().toISOString().split("T")[0],
-          };
-        }
-        return p;
-      })
-    );
-    logAction(
-      "FINAL_CURATE_PRODUKSI",
-      "produksi_video",
-      prod.id,
-      `Ketua Divisi ${currentUser.divisi} menyetujui publikasi final`
-    );
+    try {
+      const { error } = await supabase
+        .from("produksi_video")
+        .update({
+          status: "published",
+          published_at: new Date().toISOString().split("T")[0],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", prod.id);
+
+      if (error) {
+        console.error("Error curating production:", error);
+        alert(`Gagal menyetujui publikasi: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "FINAL_CURATE_PRODUKSI",
+        "produksi_video",
+        prod.id,
+        `Ketua Divisi ${currentUser.divisi || "Umum"} menyetujui publikasi final`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   // Action: Update Views
-  const handleUpdateViews = (prodId: string) => {
+  const handleUpdateViews = async (prodId: string) => {
     const input = prompt("Masukkan jumlah views terkini (YouTube / Medsos):");
     if (!input) return;
     const views = parseInt(input, 10);
     if (isNaN(views) || views < 0) return;
 
-    setProduksiList((prev) =>
-      prev.map((p) => {
-        if (p.id === prodId) {
-          return {
-            ...p,
-            jumlah_views: views,
-          };
-        }
-        return p;
-      })
-    );
-    logAction(
-      "UPDATE_VIEWS",
-      "produksi_video",
-      prodId,
-      `Memperbarui views menjadi ${views.toLocaleString()}`
-    );
+    try {
+      const { error } = await supabase
+        .from("produksi_video")
+        .update({
+          jumlah_views: views,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", prodId);
+
+      if (error) {
+        console.error("Error updating views:", error);
+        alert(`Gagal memperbarui views: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "UPDATE_VIEWS",
+        "produksi_video",
+        prodId,
+        `Memperbarui views menjadi ${views.toLocaleString()}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   const getStatusBadge = (status: ProduksiVideo["status"]): { label: string; variant: BadgeVariant } => {
@@ -310,6 +334,11 @@ export default function ProduksiPage() {
               (currentUser.role === "ketua_divisi" && currentUser.divisi === prod.divisi) ||
               currentUser.role === "administrator";
 
+            const pjUser = allUsers.find((u) => u.id === prod.penanggung_jawab_id);
+            const pjName = pjUser?.nama || (prod as any).pj_name || "Belum ditugaskan";
+            const uploaderUser = allUsers.find((u) => u.id === prod.uploaded_by);
+            const uploaderName = uploaderUser?.nama || (prod as any).uploader_name || "Pengguna";
+
             return (
               <div
                 key={prod.id}
@@ -319,7 +348,7 @@ export default function ProduksiPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge label={badge.label} variant={badge.variant} />
                     <span className="text-[10px] font-mono text-studio-text-muted">
-                      Divisi {prod.divisi} · Diupload {prod.uploader_name}
+                      Divisi {prod.divisi} · Diupload {uploaderName}
                     </span>
                   </div>
                   <h4 className="text-sm font-bold text-white">{prod.judul}</h4>
@@ -327,7 +356,7 @@ export default function ProduksiPage() {
                     <span>
                       PJ:{" "}
                       <strong className="text-white">
-                        {prod.pj_name || "Belum ditugaskan"}
+                        {pjName}
                       </strong>
                     </span>
                     {prod.jumlah_views > 0 && (
@@ -361,11 +390,10 @@ export default function ProduksiPage() {
                         <option value="" disabled>
                           Pilih PJ Proyek...
                         </option>
-                        {anggotaList
-                          .filter((u) => u.status === "aktif")
+                        {allUsers
                           .map((u) => (
                             <option key={u.id} value={u.id} className="bg-surface-2 text-white">
-                              {u.nama_lengkap} ({u.divisi || "Umum"})
+                              {u.nama} ({u.divisi || u.role})
                             </option>
                           ))}
                       </select>

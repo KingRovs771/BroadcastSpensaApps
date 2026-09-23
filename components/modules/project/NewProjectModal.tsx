@@ -14,16 +14,19 @@ interface NewProjectModalProps {
 }
 
 export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
-  const { currentUser, anggotaList, setProjectList, logAction } = useSession();
+  const { currentUser, allUsers, refreshData, logAction, supabase } = useSession();
 
   const [namaProject, setNamaProject] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [penanggungJawab, setPenanggungJawab] = useState(anggotaList[0]?.id || "");
+  const [penanggungJawab, setPenanggungJawab] = useState(
+    currentUser?.id || allUsers[0]?.id || ""
+  );
   const [selectedTim, setSelectedTim] = useState<string[]>([]);
   const [deadline, setDeadline] = useState("");
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
   const [linkDrive, setLinkDrive] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -33,14 +36,17 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setIsSubmitting(true);
+
+    const pjId = penanggungJawab || currentUser.id;
 
     const payload = {
       nama_project: namaProject,
       deskripsi,
-      penanggung_jawab: penanggungJawab,
+      penanggung_jawab: pjId,
       tim: selectedTim,
       deadline: deadline || undefined,
       divisi,
@@ -50,36 +56,51 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     const validation = projectCreateSchema.safeParse(payload);
     if (!validation.success) {
       setErrorMsg(validation.error.errors[0]?.message || "Validasi gagal");
+      setIsSubmitting(false);
       return;
     }
 
-    const pjAnggota = anggotaList.find((u) => u.id === penanggungJawab);
+    try {
+      const { data, error } = await supabase
+        .from("project")
+        .insert({
+          nama_project: namaProject,
+          deskripsi: deskripsi || null,
+          penanggung_jawab: pjId,
+          tim: selectedTim,
+          deadline: deadline || null,
+          status: "perencanaan",
+          progress: 0,
+          link_drive: linkDrive ? linkDrive.trim() : null,
+          divisi,
+          jumlah_views: 0,
+          catatan_update: [],
+        })
+        .select()
+        .single();
 
-    const newProject: ProjectKanban = {
-      id: `proj-${Date.now()}`,
-      nama_project: namaProject,
-      deskripsi,
-      penanggung_jawab: penanggungJawab,
-      pj_name: pjAnggota?.nama_lengkap || "PJ",
-      tim: selectedTim,
-      deadline,
-      status: "perencanaan",
-      progress: 0,
-      link_drive: linkDrive,
-      divisi,
-      jumlah_views: 0,
-      created_at: new Date().toISOString(),
-    };
+      if (error) {
+        console.error("Supabase insert project error:", error);
+        setErrorMsg(`Gagal menyimpan project: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
 
-    setProjectList((prev) => [newProject, ...prev]);
-    logAction(
-      "CREATE_PROJECT",
-      "project",
-      newProject.id,
-      `Ketua Broadcast menginisiasi proyek baru: ${namaProject}`
-    );
+      await refreshData();
+      logAction(
+        "CREATE_PROJECT",
+        "project",
+        data?.id || "new",
+        `Inisiasi agenda project baru: ${namaProject}`
+      );
 
-    onClose();
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(`Terjadi kesalahan sistem: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -174,9 +195,9 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
                 onChange={(e) => setPenanggungJawab(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
               >
-                {anggotaList.map((u) => (
+                {allUsers.map((u) => (
                   <option key={u.id} value={u.id} className="bg-surface-2 text-white">
-                    {u.nama_lengkap} ({u.jabatan})
+                    {u.nama} ({u.divisi || u.role})
                   </option>
                 ))}
               </select>
@@ -236,7 +257,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
               Pilih Anggota Tim Terlibat
             </label>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-surface-1 rounded-lg border border-studio-border-subtle">
-              {anggotaList.map((u) => {
+              {allUsers.map((u) => {
                 const isSelected = selectedTim.includes(u.id);
                 return (
                   <button
@@ -249,7 +270,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
                         : "bg-surface-2 border-studio-border-subtle text-studio-text-secondary hover:text-white"
                     }`}
                   >
-                    {u.nama_lengkap}
+                    {u.nama}
                   </button>
                 );
               })}

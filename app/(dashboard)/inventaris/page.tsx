@@ -21,9 +21,10 @@ export default function InventarisPage() {
   const {
     currentUser,
     inventarisList,
-    setInventarisList,
     anggotaList,
+    refreshData,
     logAction,
+    supabase,
   } = useSession();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,6 +32,7 @@ export default function InventarisPage() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [selectedForLoan, setSelectedForLoan] = useState<InventarisItem | null>(null);
   const [selectedBorrower, setSelectedBorrower] = useState(anggotaList[0]?.id || "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states for new item
   const [namaBarang, setNamaBarang] = useState("");
@@ -57,34 +59,52 @@ export default function InventarisPage() {
     return matchesSearch && matchesDivisi;
   });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    const newItem: InventarisItem = {
-      id: `inv-${Date.now()}`,
-      nama_barang: namaBarang,
-      kategori,
-      kode_inventaris: kodeInventaris,
-      jumlah: Number(jumlah),
-      kondisi,
-      lokasi_simpan: lokasi,
-      divisi,
-      status: "tersedia",
-    };
+    try {
+      const { data, error } = await supabase
+        .from("inventaris")
+        .insert({
+          nama_barang: namaBarang,
+          kategori,
+          kode_inventaris: kodeInventaris,
+          jumlah: Number(jumlah),
+          kondisi,
+          lokasi_simpan: lokasi,
+          divisi,
+          status: "tersedia",
+          penanggung_jawab: currentUser.id,
+        })
+        .select()
+        .single();
 
-    setInventarisList((prev) => [newItem, ...prev]);
-    logAction(
-      "CREATE_INVENTARIS",
-      "inventaris",
-      newItem.id,
-      `Menambahkan aset studio baru: ${namaBarang} (${kodeInventaris})`
-    );
+      if (error) {
+        console.error("Supabase insert inventaris error:", error);
+        alert(`Gagal menambah barang: ${error.message}`);
+        setIsSubmitting(false);
+        return;
+      }
 
-    setNamaBarang("");
-    setIsNewModalOpen(false);
+      await refreshData();
+      logAction(
+        "CREATE_INVENTARIS",
+        "inventaris",
+        data?.id || "new",
+        `Menambahkan aset studio baru: ${namaBarang} (${kodeInventaris})`
+      );
+
+      setNamaBarang("");
+      setIsNewModalOpen(false);
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleToggleLoan = (item: InventarisItem) => {
+  const handleToggleLoan = async (item: InventarisItem) => {
     if (item.status === "tersedia") {
       // Open modal to select borrower
       setSelectedForLoan(item);
@@ -93,53 +113,81 @@ export default function InventarisPage() {
       const returnKondisi = prompt("Kondisi saat kembali (baik / rusak ringan / hilang):", "baik");
       if (!returnKondisi) return;
 
-      setInventarisList((prev) =>
-        prev.map((i) =>
-          i.id === item.id
-            ? {
-                ...i,
-                status: "tersedia",
-                peminjam_nama: undefined,
-                kondisi: (returnKondisi as any) || "baik",
-              }
-            : i
-        )
-      );
+      try {
+        const { error } = await supabase
+          .from("inventaris")
+          .update({
+            status: "tersedia",
+            kondisi: (returnKondisi as any) || "baik",
+            keterangan: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", item.id);
 
-      logAction(
-        "RETURN_INVENTARIS",
-        "inventaris",
-        item.id,
-        `Pengembalian aset ${item.nama_barang} (kondisi: ${returnKondisi})`
-      );
+        if (error) {
+          console.error("Supabase return inventaris error:", error);
+          alert(`Gagal memproses pengembalian: ${error.message}`);
+          return;
+        }
+
+        await refreshData();
+        logAction(
+          "RETURN_INVENTARIS",
+          "inventaris",
+          item.id,
+          `Pengembalian aset ${item.nama_barang} (kondisi: ${returnKondisi})`
+        );
+      } catch (err: any) {
+        alert(`Terjadi kesalahan: ${err.message || err}`);
+      }
     }
   };
 
-  const handleConfirmLoan = () => {
+  const handleConfirmLoan = async () => {
     if (!selectedForLoan) return;
 
     const borrower = anggotaList.find((u) => u.id === selectedBorrower);
+    const borrowerName = borrower ? `${borrower.nama_lengkap} (${borrower.jabatan ?? "-"})` : "Anggota";
 
-    setInventarisList((prev) =>
-      prev.map((i) =>
-        i.id === selectedForLoan.id
-          ? {
-              ...i,
-              status: "dipinjam",
-              peminjam_nama: `${borrower?.nama_lengkap} (${borrower?.jabatan ?? '-'})`,
-            }
-          : i
-      )
-    );
+    try {
+      const { error: invErr } = await supabase
+        .from("inventaris")
+        .update({
+          status: "dipinjam",
+          keterangan: `Dipinjam oleh ${borrowerName}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedForLoan.id);
 
-    logAction(
-      "BORROW_INVENTARIS",
-      "inventaris",
-      selectedForLoan.id,
-      `Peminjaman aset ${selectedForLoan.nama_barang} oleh ${borrower?.nama_lengkap}`
-    );
+      if (invErr) {
+        console.error("Supabase loan inventaris error:", invErr);
+        alert(`Gagal meminjamkan aset: ${invErr.message}`);
+        return;
+      }
 
-    setSelectedForLoan(null);
+      // Also record in inventaris_peminjaman
+      if (selectedBorrower) {
+        await supabase.from("inventaris_peminjaman").insert({
+          inventaris_id: selectedForLoan.id,
+          anggota_id: selectedBorrower,
+          jumlah_pinjam: 1,
+          tgl_pinjam: new Date().toISOString().split("T")[0],
+          dicatat_oleh: currentUser.id,
+        });
+      }
+
+      await refreshData();
+      logAction(
+        "BORROW_INVENTARIS",
+        "inventaris",
+        selectedForLoan.id,
+        `Peminjaman aset ${selectedForLoan.nama_barang} oleh ${borrower?.nama_lengkap || selectedBorrower}`
+      );
+
+      setSelectedForLoan(null);
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
   return (

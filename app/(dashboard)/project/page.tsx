@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 export default function ProjectPage() {
-  const { currentUser, projectList, setProjectList, logAction } = useSession();
+  const { currentUser, projectList, allUsers, refreshData, logAction, supabase } = useSession();
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [filterDivisi, setFilterDivisi] = useState<string>("all");
@@ -56,40 +56,64 @@ export default function ProjectPage() {
     },
   ];
 
-  const handleMoveStatus = (
+  const handleMoveStatus = async (
     projectId: string,
     nextStatus: ProjectKanban["status"]
   ) => {
-    setProjectList((prev) =>
-      prev.map((p) => {
-        if (p.id === projectId) {
-          const progress =
-            nextStatus === "selesai" ? 100 : nextStatus === "perencanaan" ? 10 : p.progress;
-          return {
-            ...p,
-            status: nextStatus,
-            progress,
-            ...(nextStatus === "selesai"
-              ? { published_at: new Date().toISOString().split("T")[0] }
-              : {}),
-          };
-        }
-        return p;
-      })
-    );
+    const existing = projectList.find((p) => p.id === projectId);
+    const progress =
+      nextStatus === "selesai" ? 100 : nextStatus === "perencanaan" ? 10 : existing?.progress || 0;
+    const published_at =
+      nextStatus === "selesai" ? new Date().toISOString().split("T")[0] : null;
 
-    logAction(
-      "MOVE_PROJECT_STATUS",
-      "project",
-      projectId,
-      `Memindahkan project ke status: ${nextStatus.toUpperCase()}`
-    );
+    try {
+      const { error } = await supabase
+        .from("project")
+        .update({
+          status: nextStatus,
+          progress,
+          published_at,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId);
+
+      if (error) {
+        console.error("Error moving project status:", error);
+        alert(`Gagal memindahkan status project: ${error.message}`);
+        return;
+      }
+
+      await refreshData();
+      logAction(
+        "MOVE_PROJECT_STATUS",
+        "project",
+        projectId,
+        `Memindahkan project ke status: ${nextStatus.toUpperCase()}`
+      );
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err.message || err}`);
+    }
   };
 
-  const handleProgressChange = (projectId: string, newProgress: number) => {
-    setProjectList((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, progress: newProgress } : p))
-    );
+  const handleProgressChange = async (projectId: string, newProgress: number) => {
+    try {
+      const { error } = await supabase
+        .from("project")
+        .update({
+          progress: newProgress,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId);
+
+      if (error) {
+        console.error("Error updating progress:", error);
+        return;
+      }
+
+      await refreshData();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const filteredProjects = projectList.filter((p) =>
@@ -206,7 +230,9 @@ export default function ProjectPage() {
                       <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px]">
                         <div className="flex items-center gap-1.5 text-studio-text-secondary">
                           <User className="w-3 h-3 text-orbital-magenta" />
-                          <span className="truncate max-w-[110px]">{project.pj_name}</span>
+                          <span className="truncate max-w-[110px]">
+                            {allUsers.find((u) => u.id === project.penanggung_jawab)?.nama || project.pj_name || "PJ"}
+                          </span>
                         </div>
 
                         {project.link_drive && (

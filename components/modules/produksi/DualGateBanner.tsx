@@ -4,6 +4,7 @@ import React from "react";
 import { ProduksiVideo } from "@/lib/mock/store";
 import { useSession } from "@/components/shared/SessionContext";
 import { transitionDualGateApproval } from "@/lib/utils/produksi-state";
+import { createClient } from "@/lib/supabase/client";
 import { CheckCircle2, Clock, XCircle, AlertCircle, Sparkles } from "lucide-react";
 
 interface DualGateBannerProps {
@@ -12,7 +13,8 @@ interface DualGateBannerProps {
 }
 
 export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
-  const { currentUser, setProduksiList, logAction } = useSession();
+  const { currentUser, setProduksiList, logAction, refreshData } = useSession();
+  const supabase = createClient();
 
   const isPembina = currentUser.role === "pembina" || currentUser.role === "administrator";
   const isKetua = currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
@@ -20,48 +22,82 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
   const pembinaApproved = !!item.approved_pembina_by;
   const ketuaApproved = !!item.approved_ketua_by;
 
-  const handleApprove = (actor: "pembina" | "ketua_broadcast") => {
-    setProduksiList((prev) =>
-      prev.map((p) => {
-        if (p.id === item.id) {
-          const next = transitionDualGateApproval(
-            p,
-            actor,
-            "approve",
-            `Disetujui oleh ${currentUser.nama}`
-          );
-          return next;
-        }
-        return p;
-      })
+  const handleApprove = async (actor: "pembina" | "ketua_broadcast") => {
+    const next = transitionDualGateApproval(
+      item,
+      actor,
+      "approve",
+      `Disetujui oleh ${currentUser.nama}`
     );
+
+    setProduksiList((prev) =>
+      prev.map((p) => (p.id === item.id ? next : p))
+    );
+
     logAction(
       `APPROVE_SCRIPT_${actor.toUpperCase()}`,
       "produksi_video",
       item.id,
       `Menyetujui naskah: ${item.judul}`
     );
+
+    try {
+      const updatePayload: Record<string, any> = {
+        status: next.status,
+        updated_at: new Date().toISOString(),
+      };
+      const userId = currentUser.id.length === 36 ? currentUser.id : null;
+      if (actor === "pembina") {
+        updatePayload.approved_pembina_by = userId;
+        updatePayload.approved_pembina_at = new Date().toISOString();
+      } else {
+        updatePayload.approved_ketua_by = userId;
+        updatePayload.approved_ketua_at = new Date().toISOString();
+      }
+
+      await supabase.from("produksi_video").update(updatePayload).eq("id", item.id);
+      await refreshData();
+    } catch (err) {
+      console.error("Error updating produksi approval in Supabase:", err);
+    }
+
     onUpdate();
   };
 
-  const handleReject = (actor: "pembina" | "ketua_broadcast") => {
+  const handleReject = async (actor: "pembina" | "ketua_broadcast") => {
     const reason = prompt("Masukkan alasan penolakan naskah:");
     if (!reason) return;
 
+    const next = transitionDualGateApproval(item, actor, "reject", reason);
+
     setProduksiList((prev) =>
-      prev.map((p) => {
-        if (p.id === item.id) {
-          return transitionDualGateApproval(p, actor, "reject", reason);
-        }
-        return p;
-      })
+      prev.map((p) => (p.id === item.id ? next : p))
     );
+
     logAction(
       `REJECT_SCRIPT_${actor.toUpperCase()}`,
       "produksi_video",
       item.id,
       `Menolak naskah: ${item.judul} dengan alasan: ${reason}`
     );
+
+    try {
+      const updatePayload: Record<string, any> = {
+        status: next.status,
+        updated_at: new Date().toISOString(),
+      };
+      if (actor === "pembina") {
+        updatePayload.catatan_pembina = reason;
+      } else {
+        updatePayload.catatan_ketua = reason;
+      }
+
+      await supabase.from("produksi_video").update(updatePayload).eq("id", item.id);
+      await refreshData();
+    } catch (err) {
+      console.error("Error updating produksi rejection in Supabase:", err);
+    }
+
     onUpdate();
   };
 

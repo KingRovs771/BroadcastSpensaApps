@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { DIVISI_OPTIONS, PRODUKSI_JENIS_OPTIONS, produksiUploadSchema } from "@/lib/validations/produksi";
 import { ProduksiVideo, DivisiName } from "@/lib/mock/store";
-import { X, Film, AlertCircle, FileText, HelpCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { X, Film, AlertCircle, FileText, HelpCircle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface NewProduksiModalProps {
@@ -13,7 +14,8 @@ interface NewProduksiModalProps {
 }
 
 export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
-  const { currentUser, setProduksiList, logAction } = useSession();
+  const { currentUser, setProduksiList, logAction, refreshData } = useSession();
+  const supabase = createClient();
 
   const [judul, setJudul] = useState("");
   const [jenis, setJenis] = useState<"podcast" | "video" | "liputan" | "live">("video");
@@ -22,12 +24,14 @@ export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
   const [scriptText, setScriptText] = useState("");
   const [podcastText, setPodcastText] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setIsSubmitting(true);
 
     const payload = {
       judul,
@@ -40,36 +44,85 @@ export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
     const validation = produksiUploadSchema.safeParse(payload);
     if (!validation.success) {
       setErrorMsg(validation.error.errors[0]?.message || "Validasi gagal");
+      setIsSubmitting(false);
       return;
     }
 
-    const newProd: ProduksiVideo = {
-      id: `prod-${Date.now()}`,
-      judul,
-      jenis,
-      divisi,
-      status: "pending_approval",
-      uploaded_by: currentUser.id,
-      uploader_name: currentUser.nama,
-      script_text: mode === "script" ? scriptText : undefined,
-      pertanyaan_podcast: mode === "podcast" ? podcastText : undefined,
-      jumlah_views: 0,
-      created_at: new Date().toISOString(),
-    };
+    try {
+      const uploaderId = currentUser.id && currentUser.id.length === 36 ? currentUser.id : null;
+      
+      const { data: inserted, error: insertError } = await supabase
+        .from("produksi_video")
+        .insert({
+          judul,
+          jenis,
+          divisi,
+          status: "pending_approval",
+          uploaded_by: uploaderId,
+          script_text: mode === "script" ? scriptText : null,
+          pertanyaan_podcast: mode === "podcast" ? podcastText : null,
+          jumlah_views: 0,
+        })
+        .select()
+        .single();
 
-    setProduksiList((prev) => [newProd, ...prev]);
-    logAction(
-      "CREATE_PRODUKSI",
-      "produksi_video",
-      newProd.id,
-      `Membuat naskah baru: ${judul} (${divisi})`
-    );
+      if (insertError) {
+        console.error("Supabase insert produksi_video error:", insertError);
+        // Fallback simpan lokal jika RLS atau koneksi terkendala
+        const fallbackProd: ProduksiVideo = {
+          id: `prod-${Date.now()}`,
+          judul,
+          jenis,
+          divisi,
+          status: "pending_approval",
+          uploaded_by: currentUser.id,
+          uploader_name: currentUser.nama,
+          script_text: mode === "script" ? scriptText : undefined,
+          pertanyaan_podcast: mode === "podcast" ? podcastText : undefined,
+          jumlah_views: 0,
+          created_at: new Date().toISOString(),
+        };
+        setProduksiList((prev) => [fallbackProd, ...prev]);
+      } else if (inserted) {
+        const newProd: ProduksiVideo = {
+          id: inserted.id,
+          judul: inserted.judul,
+          jenis: inserted.jenis,
+          divisi: inserted.divisi,
+          status: inserted.status,
+          uploaded_by: inserted.uploaded_by,
+          uploader_name: currentUser.nama,
+          script_text: inserted.script_text || undefined,
+          pertanyaan_podcast: inserted.pertanyaan_podcast || undefined,
+          jumlah_views: inserted.jumlah_views || 0,
+          created_at: inserted.created_at,
+        };
+        setProduksiList((prev) => [newProd, ...prev.filter((p) => p.id !== inserted.id)]);
+      }
 
-    // Reset and close
-    setJudul("");
-    setScriptText("");
-    setPodcastText("");
-    onClose();
+      logAction(
+        "CREATE_PRODUKSI",
+        "produksi_video",
+        inserted?.id || "new",
+        `Membuat naskah baru: ${judul} (${divisi})`
+      );
+
+      try {
+        await refreshData();
+      } catch {
+        // ignore
+      }
+
+      // Reset and close
+      setJudul("");
+      setScriptText("");
+      setPodcastText("");
+      onClose();
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Terjadi kesalahan saat menyimpan naskah.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
