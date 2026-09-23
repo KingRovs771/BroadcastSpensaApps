@@ -214,7 +214,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 10. Keuangan Pembina
-      const { data: keuanganData } = await supabase.from("keuangan_pembina").select("*");
+      const { data: keuanganData } = await supabase
+        .from("keuangan_pembina")
+        .select("*")
+        .order("tanggal", { ascending: false });
       if (keuanganData) {
         setKeuanganPembinaList(keuanganData as KeuanganPembinaItem[]);
       } else {
