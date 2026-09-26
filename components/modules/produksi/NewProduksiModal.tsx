@@ -242,7 +242,7 @@ export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
                     : "bg-surface-1 border-studio-border-subtle text-studio-text-secondary"
                 }`}
               >
-                Naskah Script (Min 50 Karakter)
+                Naskah Skrip Video (Min 50 Karakter)
               </button>
               <button
                 type="button"
@@ -253,19 +253,19 @@ export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
                     : "bg-surface-1 border-studio-border-subtle text-studio-text-secondary"
                 }`}
               >
-                Pertanyaan Podcast (Min 3 Butir)
+                Pertanyaan Konsep / Podcast (Min 3 Butir)
               </button>
             </div>
 
             {mode === "script" ? (
               <div>
-                <label htmlFor="prod-script" className="sr-only">Naskah Script</label>
+                <label htmlFor="prod-script" className="sr-only">Naskah Skrip Video</label>
                 <textarea
                   id="prod-script"
                   rows={5}
                   value={scriptText}
                   onChange={(e) => setScriptText(e.target.value)}
-                  placeholder="Ketikkan pembukaan narasi, dialog reporter, atau instruksi adegan minimal 50 karakter..."
+                  placeholder="Ketikkan pembukaan narasi, dialog reporter, atau naskah konsep video minimal 50 karakter..."
                   className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white font-mono placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none"
                 />
                 <span className="text-[10px] font-mono text-studio-text-muted">
@@ -274,13 +274,13 @@ export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
               </div>
             ) : (
               <div>
-                <label htmlFor="prod-podcast" className="sr-only">Daftar Pertanyaan Podcast</label>
+                <label htmlFor="prod-podcast" className="sr-only">Daftar Pertanyaan Konsep Video / Podcast</label>
                 <textarea
                   id="prod-podcast"
                   rows={5}
                   value={podcastText}
                   onChange={(e) => setPodcastText(e.target.value)}
-                  placeholder="1. Apa latar belakang ide ini?&#10;2. Bagaimana proses persiapannya?&#10;3. Apa harapan untuk ke depannya?"
+                  placeholder="1. Apa latar belakang & konsep utama video ini?&#10;2. Bagaimana alur pertanyaan wawancara narasumber?&#10;3. Apa pesan inti yang ingin disampaikan?"
                   className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white font-mono placeholder:text-studio-text-muted focus:border-orbital-violet focus:outline-none"
                 />
                 <span className="text-[10px] font-mono text-studio-text-muted">

@@ -120,7 +120,10 @@ export interface ProjectKanban {
   deadline?: string;
   status: "perencanaan" | "proses" | "selesai" | "tunda";
   progress: number;
-  link_drive?: string;
+  link_video?: string;
+  link_audio?: string;
+  link_thumbnail?: string;
+  link_finalisasi?: string;
   divisi: DivisiName;
   jumlah_views: number;
   published_at?: string;
@@ -620,7 +623,9 @@ export const INITIAL_PROJECTS: ProjectKanban[] = [
     deadline: "2026-10-15",
     status: "perencanaan",
     progress: 25,
-    link_drive: "https://drive.google.com/drive/folders/spensa-diesnatalis-75",
+    link_video: "https://drive.google.com/drive/folders/spensa-diesnatalis-75-video",
+    link_audio: "https://drive.google.com/drive/folders/spensa-diesnatalis-75-audio",
+    link_thumbnail: "https://drive.google.com/drive/folders/spensa-diesnatalis-75-thumb",
     divisi: "Broadcasting",
     jumlah_views: 0,
     created_at: "2026-09-01T10:00:00Z",
@@ -635,7 +640,8 @@ export const INITIAL_PROJECTS: ProjectKanban[] = [
     deadline: "2026-09-28",
     status: "proses",
     progress: 60,
-    link_drive: "https://drive.google.com/drive/folders/spensa-mini-doc-ekskul",
+    link_video: "https://drive.google.com/drive/folders/spensa-mini-doc-video",
+    link_finalisasi: "https://drive.google.com/drive/folders/spensa-mini-doc-final",
     divisi: "Videografer",
     jumlah_views: 3200,
     created_at: "2026-08-20T09:00:00Z",
@@ -650,7 +656,10 @@ export const INITIAL_PROJECTS: ProjectKanban[] = [
     deadline: "2026-08-25",
     status: "selesai",
     progress: 100,
-    link_drive: "https://drive.google.com/drive/folders/spensa-pilkasis-live-2026",
+    link_video: "https://drive.google.com/drive/folders/spensa-pilkasis-video",
+    link_audio: "https://drive.google.com/drive/folders/spensa-pilkasis-audio",
+    link_thumbnail: "https://drive.google.com/drive/folders/spensa-pilkasis-thumb",
+    link_finalisasi: "https://drive.google.com/drive/folders/spensa-pilkasis-final",
     divisi: "Broadcasting",
     jumlah_views: 8900,
     published_at: "2026-08-25",

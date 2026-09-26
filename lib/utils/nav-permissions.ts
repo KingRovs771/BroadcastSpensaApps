@@ -161,6 +161,11 @@ export function isRouteAllowedForUser(
 ): boolean {
   if (role === "administrator") return true;
 
+  // Semua anggota yang tergabung di Divisi Kreatif berhak mengakses modul Produksi Dual-Gate
+  if (item.href === "/produksi" && (role === "div_kreatif" || divisi === "Kreatif")) {
+    return true;
+  }
+
   if (!item.allowedRoles.includes(role)) {
     return false;
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { useSession } from "@/components/shared/SessionContext";
@@ -24,10 +24,25 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+export interface TambahPembinaInitialData {
+  nama?: string;
+  email?: string;
+  role?: UserRole;
+  divisi?: DivisiName;
+  jabatan?: string;
+  noHp?: string;
+  nip?: string;
+  tingkatKelas?: "VII" | "VIII" | "IX";
+  rombelKelas?: string;
+  nisn?: string;
+  daftarSebagaiAnggotaTetap?: boolean;
+}
+
 interface TambahPembinaModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (newPembina: UserProfile) => void;
+  initialData?: TambahPembinaInitialData | null;
 }
 
 const TINGKAT_KELAS_OPTIONS = ["VII", "VIII", "IX"] as const;
@@ -51,6 +66,7 @@ export function TambahPembinaModal({
   isOpen,
   onClose,
   onSuccess,
+  initialData,
 }: TambahPembinaModalProps) {
   const supabase = createClient();
   const { logAction, refreshData, setPembinaList, setAllUsers, setAnggotaList } = useSession();
@@ -74,6 +90,42 @@ export function TambahPembinaModal({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setNama(initialData.nama || "");
+        setEmail(
+          initialData.email ||
+            (initialData.nama
+              ? `${initialData.nama.toLowerCase().replace(/[^a-z0-9]/g, "")}@broadcast.com`
+              : "")
+        );
+        setPassword("");
+        setSelectedRole(initialData.role || "anggota");
+        if (initialData.divisi) setDivisi(initialData.divisi);
+        setJabatanSekolah(initialData.jabatan || "Anggota");
+        setNoHp(initialData.noHp || "");
+        setNip(initialData.nip || "");
+        if (initialData.tingkatKelas) setTingkatKelas(initialData.tingkatKelas);
+        if (initialData.rombelKelas) setRombelKelas(initialData.rombelKelas);
+        if (initialData.nisn) setNisn(initialData.nisn);
+        setDaftarSebagaiAnggotaTetap(initialData.daftarSebagaiAnggotaTetap ?? false);
+      } else {
+        setNama("");
+        setEmail("");
+        setPassword("");
+        setSelectedRole("pembina");
+        setDivisi("Broadcasting");
+        setJabatanSekolah("Guru Pembina Ekskul");
+        setNoHp("");
+        setNip("");
+        setDaftarSebagaiAnggotaTetap(false);
+      }
+      setErrorMsg(null);
+      setSuccessMsg(null);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 

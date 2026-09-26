@@ -108,4 +108,13 @@ describe("nav-permissions (RBAC Navigation Filters)", () => {
       expect(menus).not.toContain("Audit Log Sistem");
     }
   });
+
+  it("Semua anggota di Divisi Kreatif dapat melihat Produksi Dual-Gate dan Project Kanban", () => {
+    const memberKreatifMenus = ALL_NAV_ITEMS.filter((item) =>
+      isRouteAllowedForUser(item, "anggota", "Kreatif")
+    ).map((item) => item.label);
+
+    expect(memberKreatifMenus).toContain("Produksi Dual-Gate");
+    expect(memberKreatifMenus).toContain("Project Kanban");
+  });
 });

@@ -26,10 +26,15 @@ export default function ProduksiPage() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [selectedForLinks, setSelectedForLinks] = useState<ProduksiVideo | null>(null);
 
-  const isKreatifOrAdmin =
+  // Seluruh anggota di Divisi Kreatif, serta Admin, Pembina, Ketua Umum, dan Ketua Divisi
+  // berhak menambahkan naskah skrip dan pertanyaan konsep video
+  const canSubmitProduksi =
+    currentUser.divisi === "Kreatif" ||
     currentUser.role === "div_kreatif" ||
-    currentUser.role === "ketua_divisi" ||
-    currentUser.role === "administrator";
+    currentUser.role === "administrator" ||
+    currentUser.role === "pembina" ||
+    currentUser.role === "ketua_broadcast" ||
+    currentUser.role === "ketua_divisi";
 
   const isKetuaBroadcast =
     currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
@@ -197,14 +202,14 @@ export default function ProduksiPage() {
           </p>
         </div>
 
-        {isKreatifOrAdmin && (
+        {canSubmitProduksi && (
           <button
             onClick={() => setIsNewModalOpen(true)}
             aria-label="Upload Naskah Produksi Baru"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
           >
             <Plus className="w-4 h-4" />
-            <span>Ajukan Naskah Baru</span>
+            <span>Ajukan Naskah / Skrip Baru</span>
           </button>
         )}
       </div>

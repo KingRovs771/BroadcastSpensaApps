@@ -24,7 +24,10 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const [selectedTim, setSelectedTim] = useState<string[]>([]);
   const [deadline, setDeadline] = useState("");
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
-  const [linkDrive, setLinkDrive] = useState("");
+  const [linkVideo, setLinkVideo] = useState("");
+  const [linkAudio, setLinkAudio] = useState("");
+  const [linkThumbnail, setLinkThumbnail] = useState("");
+  const [linkFinalisasi, setLinkFinalisasi] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,7 +53,10 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
       tim: selectedTim,
       deadline: deadline || undefined,
       divisi,
-      link_drive: linkDrive || undefined,
+      link_video: linkVideo || undefined,
+      link_audio: linkAudio || undefined,
+      link_thumbnail: linkThumbnail || undefined,
+      link_finalisasi: linkFinalisasi || undefined,
     };
 
     const validation = projectCreateSchema.safeParse(payload);
@@ -71,7 +77,10 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
           deadline: deadline || null,
           status: "perencanaan",
           progress: 0,
-          link_drive: linkDrive ? linkDrive.trim() : null,
+          link_video: linkVideo.trim() || null,
+          link_audio: linkAudio.trim() || null,
+          link_thumbnail: linkThumbnail.trim() || null,
+          link_finalisasi: linkFinalisasi.trim() || null,
           divisi,
           jumlah_views: 0,
           catatan_update: [],
@@ -222,32 +231,84 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="proj-deadline" className="block text-xs font-semibold text-white mb-1">
-                Tenggat Waktu (Deadline)
-              </label>
-              <input
-                id="proj-deadline"
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-              />
-            </div>
+          <div>
+            <label htmlFor="proj-deadline" className="block text-xs font-semibold text-white mb-1">
+              Tenggat Waktu (Deadline)
+            </label>
+            <input
+              id="proj-deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+            />
+          </div>
 
-            <div>
-              <label htmlFor="proj-drive" className="block text-xs font-semibold text-white mb-1">
-                Tautan Google Drive (Wajib drive.google.com)
-              </label>
-              <input
-                id="proj-drive"
-                type="url"
-                value={linkDrive}
-                onChange={(e) => setLinkDrive(e.target.value)}
-                placeholder="https://drive.google.com/drive/folders/..."
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-              />
+          {/* ── Link Produksi (diisi setelah take video) ── */}
+          <div className="rounded-xl border border-studio-border-subtle bg-surface-1/50 p-4 space-y-3">
+            <p className="text-[11px] font-bold text-studio-text-secondary uppercase tracking-widest">
+              🎬 Link Produksi
+              <span className="ml-2 text-[10px] font-normal normal-case text-studio-text-muted">
+                (Opsional — diisi setelah proses take & editing selesai)
+              </span>
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="proj-link-video" className="block text-xs font-semibold text-white mb-1">
+                  Link Video
+                </label>
+                <input
+                  id="proj-link-video"
+                  type="url"
+                  value={linkVideo}
+                  onChange={(e) => setLinkVideo(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="proj-link-audio" className="block text-xs font-semibold text-white mb-1">
+                  Link Audio
+                </label>
+                <input
+                  id="proj-link-audio"
+                  type="url"
+                  value={linkAudio}
+                  onChange={(e) => setLinkAudio(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="proj-link-thumbnail" className="block text-xs font-semibold text-white mb-1">
+                  Link Thumbnail
+                </label>
+                <input
+                  id="proj-link-thumbnail"
+                  type="url"
+                  value={linkThumbnail}
+                  onChange={(e) => setLinkThumbnail(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="proj-link-finalisasi" className="block text-xs font-semibold text-white mb-1">
+                  Link Finalisasi
+                </label>
+                <input
+                  id="proj-link-finalisasi"
+                  type="url"
+                  value={linkFinalisasi}
+                  onChange={(e) => setLinkFinalisasi(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white placeholder:text-studio-text-muted focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                />
+              </div>
             </div>
           </div>
 

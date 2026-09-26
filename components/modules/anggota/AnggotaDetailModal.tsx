@@ -20,6 +20,7 @@ import {
   Edit,
   Trash2,
   FileSpreadsheet,
+  Key,
 } from "lucide-react";
 
 interface AnggotaDetailModalProps {
@@ -28,6 +29,7 @@ interface AnggotaDetailModalProps {
   anggota: AnggotaRecord | null;
   onEdit?: (anggota: AnggotaRecord) => void;
   onDelete?: (anggota: AnggotaRecord) => void;
+  onCreateUser?: (anggota: AnggotaRecord) => void;
 }
 
 export function AnggotaDetailModal({
@@ -36,8 +38,9 @@ export function AnggotaDetailModal({
   anggota,
   onEdit,
   onDelete,
+  onCreateUser,
 }: AnggotaDetailModalProps) {
-  const { currentUser, absensiList, kasPembayaranList, kasSettings } = useSession();
+  const { currentUser, absensiList, kasPembayaranList, kasSettings, allUsers } = useSession();
 
   if (!isOpen || !anggota) return null;
 
@@ -217,6 +220,62 @@ export function AnggotaDetailModal({
               </a>
             )}
           </div>
+
+          {/* Akun Pengguna Aplikasi (Login Sistem) */}
+          {(() => {
+            const matchedUser = (allUsers || []).find(
+              (u) =>
+                u.nama.toLowerCase().trim() === anggota.nama_lengkap.toLowerCase().trim() ||
+                (anggota.no_hp && u.email && u.email.includes(anggota.no_hp))
+            );
+
+            return (
+              <div className="p-3.5 rounded-xl bg-surface-1 border border-studio-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-mono text-studio-text-muted uppercase font-bold flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-spectrum-cyan" />
+                    Akun Pengguna Aplikasi (Login Sistem)
+                  </span>
+                  {matchedUser ? (
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-white font-mono">{matchedUser.email}</p>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          AKUN AKTIF · {matchedUser.role.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Siswa terdaftar sebagai pengguna resmi sistem Broadcast Spensa OS.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm font-semibold text-slate-300">
+                        Belum memiliki akun pengguna sistem.
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Siswa belum dapat login ke dashboard sistem secara mandiri.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {!matchedUser && isPembinaOrAdmin && onCreateUser && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onCreateUser(anggota);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 self-start sm:self-auto min-h-[40px] whitespace-nowrap"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>+ Buatkan Akun Login</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Tabular Insights: Presensi & Kas Live */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

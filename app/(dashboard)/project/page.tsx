@@ -21,8 +21,15 @@ export default function ProjectPage() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [filterDivisi, setFilterDivisi] = useState<string>("all");
 
-  const isKetuaOrAdmin =
-    currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
+  // Seluruh anggota di Divisi Kreatif, serta Ketua Umum, Admin, Pembina, dan Ketua Divisi
+  // berhak menginisiasi project kanban baru
+  const canCreateProject =
+    currentUser.divisi === "Kreatif" ||
+    currentUser.role === "div_kreatif" ||
+    currentUser.role === "ketua_broadcast" ||
+    currentUser.role === "administrator" ||
+    currentUser.role === "pembina" ||
+    currentUser.role === "ketua_divisi";
 
   const columns: Array<{
     id: ProjectKanban["status"];
@@ -135,7 +142,7 @@ export default function ProjectPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isKetuaOrAdmin && (
+          {canCreateProject && (
             <button
               onClick={() => setIsNewModalOpen(true)}
               aria-label="Inisiasi Project Baru"
@@ -235,16 +242,33 @@ export default function ProjectPage() {
                           </span>
                         </div>
 
-                        {project.link_drive && (
-                          <a
-                            href={project.link_drive}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[10px] font-mono text-spectrum-cyan hover:underline"
-                          >
-                            <span>Drive</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
+                        {(project.link_video || project.link_audio || project.link_thumbnail || project.link_finalisasi) && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {project.link_video && (
+                              <a href={project.link_video} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-cyan hover:underline">
+                                🎬<ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                            {project.link_audio && (
+                              <a href={project.link_audio} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-lime hover:underline">
+                                🎙<ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                            {project.link_thumbnail && (
+                              <a href={project.link_thumbnail} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-0.5 text-[10px] font-mono text-orbital-magenta hover:underline">
+                                🖼<ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                            {project.link_finalisasi && (
+                              <a href={project.link_finalisasi} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-tangerine hover:underline">
+                                ✅<ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
                         )}
                       </div>
 

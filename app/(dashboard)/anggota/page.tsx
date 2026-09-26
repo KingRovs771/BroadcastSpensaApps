@@ -2,10 +2,13 @@
 
 import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
-import { AnggotaRecord, DivisiName, UserProfile } from "@/lib/mock/store";
+import { AnggotaRecord, DivisiName, UserProfile, UserRole } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
 import { createClient } from "@/lib/supabase/client";
-import { TambahPembinaModal } from "@/components/modules/pembina/TambahPembinaModal";
+import {
+  TambahPembinaModal,
+  TambahPembinaInitialData,
+} from "@/components/modules/pembina/TambahPembinaModal";
 import { AnggotaDetailModal } from "@/components/modules/anggota/AnggotaDetailModal";
 import { EditAnggotaModal } from "@/components/modules/anggota/EditAnggotaModal";
 import { HapusAnggotaModal } from "@/components/modules/anggota/HapusAnggotaModal";
@@ -29,6 +32,7 @@ import {
   CheckCircle,
   Download,
   Eye,
+  EyeOff,
   Edit,
   Trash2,
   Key,
@@ -62,6 +66,9 @@ export default function AnggotaPage() {
     anggotaList,
     setAnggotaList,
     pembinaList,
+    allUsers,
+    setAllUsers,
+    refreshData,
     logAction,
   } = useSession();
 
@@ -70,6 +77,7 @@ export default function AnggotaPage() {
   const [kelasFilter, setKelasFilter] = useState<"all" | "VII" | "VIII" | "IX">("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPembinaModalOpen, setIsPembinaModalOpen] = useState(false);
+  const [userModalInitialData, setUserModalInitialData] = useState<TambahPembinaInitialData | null>(null);
 
   // Form states untuk Anggota
   const [namaLengkap, setNamaLengkap] = useState("");
@@ -80,6 +88,38 @@ export default function AnggotaPage() {
   const [jabatan, setJabatan] = useState<string>("Anggota");
   const [divisi, setDivisi] = useState<DivisiName>("Broadcasting");
   const [noHp, setNoHp] = useState("");
+
+  // Form states untuk opsi Buatkan Akun Pengguna Aplikasi Sekaligus
+  const [buatAkunPengguna, setBuatAkunPengguna] = useState(false);
+  const [emailAkun, setEmailAkun] = useState("");
+  const [passwordAkun, setPasswordAkun] = useState("");
+  const [showPasswordAkun, setShowPasswordAkun] = useState(false);
+  const [roleAkun, setRoleAkun] = useState<UserRole>("anggota");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper pemetaan jabatan struktural ke role sistem
+  const mapJabatanToRole = (jabatanStr: string): UserRole => {
+    switch (jabatanStr) {
+      case "Ketua Umum Broadcast":
+      case "Wakil Ketua Broadcast":
+        return "ketua_broadcast";
+      case "Ketua Divisi":
+        return "ketua_divisi";
+      case "Sekretaris 1":
+      case "Sekretaris 2":
+        return "sekretaris";
+      case "Bendahara 1":
+      case "Bendahara 2":
+        return "bendahara";
+      case "Staf Divisi Kreatif":
+        return "div_kreatif";
+      case "Penanggung Jawab (PJ)":
+        return "pj";
+      default:
+        return "anggota";
+    }
+  };
 
   // Popup CRUD & Detail states
   const [selectedDetailAnggota, setSelectedDetailAnggota] = useState<AnggotaRecord | null>(null);
@@ -185,21 +225,34 @@ export default function AnggotaPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
+    if (buatAkunPengguna) {
+      if (!emailAkun.trim() || !emailAkun.includes("@")) {
+        setFormError("Format email pengguna tidak valid.");
+        return;
+      }
+      if (passwordAkun.length < 6) {
+        setFormError("Kata sandi akun minimal 6 karakter.");
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
     const selectedKelas = `${tingkatKelas}-${rombelKelas}`;
     const tempId = `ang-${Date.now()}`;
     const newAnggota: AnggotaRecord = {
       id: tempId,
       tipe: activeTab as "tetap" | "ekskul",
-      nama_lengkap: namaLengkap,
-      nis,
-      nisn: nisn || undefined,
+      nama_lengkap: namaLengkap.trim(),
+      nis: nis.trim(),
+      nisn: nisn.trim() || undefined,
       kelas: selectedKelas,
-      jabatan,
+      jabatan: jabatan.trim(),
       divisi: activeTab === "tetap" ? divisi : undefined,
       tahun_ajaran: "2026/2027",
       status: "aktif",
-      no_hp: noHp || undefined,
+      no_hp: noHp.trim() || undefined,
     };
 
     setAnggotaList((prev) => [...prev, newAnggota]);
@@ -207,34 +260,83 @@ export default function AnggotaPage() {
       "REGISTER_ANGGOTA",
       "anggota",
       newAnggota.id,
-      `Mendaftarkan ${activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}: ${namaLengkap} (${selectedKelas}) - ${jabatan}`
+      `Mendaftarkan ${activeTab === "tetap" ? "Anggota Tetap" : "Anggota Ekskul"}: ${namaLengkap.trim()} (${selectedKelas}) - ${jabatan}`
     );
 
     try {
-      const { data } = await supabase
+      // 1. Simpan ke database Supabase public.anggota (tanpa menghapus data yang sudah ada)
+      const { data, error: anggotaErr } = await supabase
         .from("anggota")
         .insert({
           tipe: activeTab,
-          nama_lengkap: namaLengkap,
-          nis,
-          nisn: nisn || null,
+          nama_lengkap: namaLengkap.trim(),
+          nis: nis.trim(),
+          nisn: nisn.trim() || null,
           kelas: selectedKelas,
-          jabatan,
+          jabatan: jabatan.trim(),
           divisi: activeTab === "tetap" ? divisi : null,
           tahun_ajaran: "2026/2027",
           status: "aktif",
-          no_hp: noHp || null,
+          no_hp: noHp.trim() || null,
         })
         .select()
         .single();
 
-      if (data) {
+      if (anggotaErr) {
+        console.warn("Notice inserting anggota:", anggotaErr);
+      } else if (data) {
         setAnggotaList((prev) =>
           prev.map((a) => (a.id === tempId ? (data as AnggotaRecord) : a))
         );
       }
+
+      // 2. Jika opsi 'Buatkan Akun Pengguna' aktif: Buat akun login sistem di auth.users & profiles
+      if (buatAkunPengguna) {
+        try {
+          const createRes = await fetch("/api/users/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: emailAkun.trim().toLowerCase(),
+              password: passwordAkun,
+              nama: namaLengkap.trim(),
+              role: roleAkun,
+              nip: nis.trim() || undefined,
+              jabatan: jabatan.trim(),
+              no_hp: noHp.trim() || undefined,
+              divisi: (roleAkun === "div_kreatif" || roleAkun === "ketua_divisi" || roleAkun === "pj") ? divisi : undefined,
+            }),
+          });
+
+          const createData = await createRes.json();
+          if (createRes.ok && createData.user?.id) {
+            const newProfile: UserProfile = {
+              id: createData.user.id,
+              nama: namaLengkap.trim(),
+              email: emailAkun.trim().toLowerCase(),
+              role: roleAkun,
+              divisi: (roleAkun === "div_kreatif" || roleAkun === "ketua_divisi" || roleAkun === "pj") ? divisi : undefined,
+            };
+            setAllUsers((prev) => [newProfile, ...prev]);
+            logAction(
+              "CREATE_USER_FOR_ANGGOTA",
+              "users",
+              createData.user.id,
+              `Membuat akun pengguna aplikasi untuk siswa: ${namaLengkap.trim()} (${emailAkun.trim().toLowerCase()}) - Role: ${roleAkun}`
+            );
+          } else if (createData.error) {
+            console.warn("Notice creating user account:", createData.error);
+          }
+        } catch (authErr) {
+          console.error("Error creating user account for anggota:", authErr);
+        }
+      }
+
+      await refreshData();
     } catch (err) {
-      console.error("Error inserting anggota to Supabase:", err);
+      console.error("Error inserting anggota or creating user to Supabase:", err);
+    } finally {
+      setIsSubmitting(false);
     }
 
     setNamaLengkap("");
@@ -244,6 +346,12 @@ export default function AnggotaPage() {
     setTingkatKelas("VIII");
     setRombelKelas("A");
     setJabatan("Anggota");
+    setBuatAkunPengguna(false);
+    setEmailAkun("");
+    setPasswordAkun("");
+    setShowPasswordAkun(false);
+    setRoleAkun("anggota");
+    setFormError(null);
     setIsModalOpen(false);
   };
 
@@ -266,7 +374,7 @@ export default function AnggotaPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
           {/* Tombol Export Excel / CSV sesuai database */}
           {(activeTab === "ekskul" || activeTab === "tetap") && (
             <button
@@ -283,10 +391,29 @@ export default function AnggotaPage() {
             </button>
           )}
 
+          {/* Tombol Tambah Akun Pengguna Aplikasi (Admin & Pembina) */}
+          {isPembinaOrAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setUserModalInitialData(null);
+                setIsPembinaModalOpen(true);
+              }}
+              title="Buat Akun Pengguna Aplikasi Baru"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 min-h-[42px]"
+            >
+              <Key className="w-4 h-4 shrink-0" />
+              <span>+ Akun Pengguna</span>
+            </button>
+          )}
+
           {activeTab === "pembina" ? (
             isPembinaOrAdmin && (
               <button
-                onClick={() => setIsPembinaModalOpen(true)}
+                onClick={() => {
+                  setUserModalInitialData({ role: "pembina", jabatan: "Guru Pembina Ekskul" });
+                  setIsPembinaModalOpen(true);
+                }}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-xs font-bold transition-all shadow-lg shadow-violet-900/40 min-h-[42px]"
               >
                 <Plus className="w-4 h-4 shrink-0" />
@@ -639,6 +766,61 @@ export default function AnggotaPage() {
                       </a>
                     </div>
                   )}
+
+                  {/* Status Akun Pengguna Aplikasi Siswa */}
+                  {(() => {
+                    const matchedUser = (allUsers || []).find(
+                      (u) =>
+                        u.nama.toLowerCase().trim() === ang.nama_lengkap.toLowerCase().trim() ||
+                        (ang.no_hp && u.email && u.email.includes(ang.no_hp))
+                    );
+
+                    return (
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-studio-border-subtle">
+                        <span className="text-studio-text-secondary text-[11px] flex items-center gap-1">
+                          <Key className="w-3 h-3 text-spectrum-cyan" /> Akun Aplikasi:
+                        </span>
+                        {matchedUser ? (
+                          <span className="font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/25 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle className="w-2.5 h-2.5" />
+                            {getRoleBadge(matchedUser.role).label}
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono text-slate-500">Belum Ada</span>
+                            {isPembinaOrAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const mapped = mapJabatanToRole(ang.jabatan);
+                                  const [tKelas, rKelas] = ang.kelas.split("-");
+                                  setUserModalInitialData({
+                                    nama: ang.nama_lengkap,
+                                    email: `${ang.nama_lengkap.toLowerCase().replace(/[^a-z0-9]/g, "")}@broadcast.com`,
+                                    role: mapped,
+                                    divisi: ang.divisi,
+                                    jabatan: ang.jabatan,
+                                    noHp: ang.no_hp,
+                                    nip: ang.nis,
+                                    tingkatKelas: (tKelas as any) || "VIII",
+                                    rombelKelas: rKelas || "A",
+                                    nisn: ang.nisn,
+                                    daftarSebagaiAnggotaTetap: false,
+                                  });
+                                  setIsPembinaModalOpen(true);
+                                }}
+                                title="Buatkan akun pengguna aplikasi untuk siswa ini"
+                                className="text-[10px] font-bold text-spectrum-cyan hover:text-white bg-spectrum-cyan/15 hover:bg-spectrum-cyan/30 px-2 py-0.5 rounded border border-spectrum-cyan/30 transition-all flex items-center gap-1"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>Akun</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Baris Aksi: Detail (Ketua, Sekretaris, Bendahara, Pembina, Admin), Edit & Hapus (Pembina, Admin, Sekretaris) */}
@@ -729,7 +911,13 @@ export default function AnggotaPage() {
                     type="text"
                     required
                     value={namaLengkap}
-                    onChange={(e) => setNamaLengkap(e.target.value)}
+                    onChange={(e) => {
+                      setNamaLengkap(e.target.value);
+                      if (!emailAkun || emailAkun.endsWith("@broadcast.com")) {
+                        const clean = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "");
+                        setEmailAkun(clean ? `${clean}@broadcast.com` : "");
+                      }
+                    }}
                     placeholder="Contoh: Muhammad Farhan"
                     className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
                   />
@@ -796,7 +984,10 @@ export default function AnggotaPage() {
                     </label>
                     <select
                       value={jabatan}
-                      onChange={(e) => setJabatan(e.target.value)}
+                      onChange={(e) => {
+                        setJabatan(e.target.value);
+                        setRoleAkun(mapJabatanToRole(e.target.value));
+                      }}
                       className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
                     >
                       {JABATAN_ROLE_OPTIONS.map((j) => (
@@ -855,6 +1046,110 @@ export default function AnggotaPage() {
                   </div>
                 </div>
 
+                {/* Opsi Buatkan Akun Pengguna Aplikasi Sekaligus */}
+                <div className="p-3.5 rounded-xl bg-surface-1 border border-studio-border-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={buatAkunPengguna}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setBuatAkunPengguna(checked);
+                          if (checked && !emailAkun && namaLengkap.trim()) {
+                            const clean = namaLengkap.toLowerCase().replace(/[^a-z0-9]/g, "");
+                            setEmailAkun(`${clean || "siswa"}@broadcast.com`);
+                          }
+                        }}
+                        className="w-4 h-4 rounded text-spectrum-cyan focus:ring-spectrum-cyan bg-surface-2 border-studio-border-subtle"
+                      />
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-spectrum-cyan" />
+                        Buatkan Akun Pengguna Aplikasi Sekaligus (Login)
+                      </span>
+                    </label>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      Opsional
+                    </span>
+                  </div>
+
+                  {buatAkunPengguna && (
+                    <div className="pt-2 border-t border-studio-border-subtle space-y-3">
+                      {/* Email Akun */}
+                      <div>
+                        <label className="block text-xs font-semibold text-white mb-1">
+                          Email Akun Login *
+                        </label>
+                        <input
+                          type="email"
+                          required={buatAkunPengguna}
+                          value={emailAkun}
+                          onChange={(e) => setEmailAkun(e.target.value)}
+                          placeholder="contoh: farhan@broadcast.com"
+                          className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Digunakan siswa untuk login ke dashboard Broadcast Spensa OS.
+                        </p>
+                      </div>
+
+                      {/* Password Akun & Role */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-white mb-1">
+                            Kata Sandi Baru *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showPasswordAkun ? "text" : "password"}
+                              required={buatAkunPengguna}
+                              minLength={6}
+                              value={passwordAkun}
+                              onChange={(e) => setPasswordAkun(e.target.value)}
+                              placeholder="Min. 6 karakter"
+                              className="w-full px-3 py-2 pr-9 rounded-lg bg-surface-2 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPasswordAkun(!showPasswordAkun)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                            >
+                              {showPasswordAkun ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-white mb-1">
+                            Peran Sistem (Role) *
+                          </label>
+                          <select
+                            value={roleAkun}
+                            onChange={(e) => setRoleAkun(e.target.value as UserRole)}
+                            className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                          >
+                            <option value="anggota">Anggota Biasa</option>
+                            <option value="ketua_divisi">Ketua Divisi</option>
+                            <option value="ketua_broadcast">Ketua Umum Broadcast</option>
+                            <option value="sekretaris">Sekretaris</option>
+                            <option value="bendahara">Bendahara</option>
+                            <option value="div_kreatif">Divisi Kreatif</option>
+                            <option value="pj">Penanggung Jawab (PJ)</option>
+                            <option value="pembina">Dewan Pembina</option>
+                            <option value="administrator">Administrator</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {formError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
+                    {formError}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-4 border-t border-studio-border-subtle">
                   <button
                     type="button"
@@ -865,9 +1160,10 @@ export default function AnggotaPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 sm:flex-initial px-5 py-2 rounded-lg bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px] flex items-center justify-center"
+                    disabled={isSubmitting}
+                    className="flex-1 sm:flex-initial px-5 py-2 rounded-lg bg-spectrum-cobalt hover:bg-sky-400 disabled:opacity-50 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px] flex items-center justify-center gap-2"
                   >
-                    Simpan Anggota
+                    {isSubmitting ? "Menyimpan..." : "Simpan Anggota"}
                   </button>
                 </div>
               </form>
@@ -876,10 +1172,14 @@ export default function AnggotaPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Modal Tambah Pembina ─────────────────────────────────────────────── */}
+      {/* ── Modal Tambah Pembina / Pengguna ──────────────────────────────────── */}
       <TambahPembinaModal
         isOpen={isPembinaModalOpen}
-        onClose={() => setIsPembinaModalOpen(false)}
+        onClose={() => {
+          setIsPembinaModalOpen(false);
+          setUserModalInitialData(null);
+        }}
+        initialData={userModalInitialData}
       />
 
       {/* ── Modal Detail Anggota (Ketua, Sekretaris, Bendahara, Pembina, Admin) ── */}
@@ -889,6 +1189,24 @@ export default function AnggotaPage() {
         anggota={selectedDetailAnggota}
         onEdit={(ang) => setSelectedEditAnggota(ang)}
         onDelete={(ang) => setSelectedDeleteAnggota(ang)}
+        onCreateUser={(ang) => {
+          const mapped = mapJabatanToRole(ang.jabatan);
+          const [tKelas, rKelas] = ang.kelas.split("-");
+          setUserModalInitialData({
+            nama: ang.nama_lengkap,
+            email: `${ang.nama_lengkap.toLowerCase().replace(/[^a-z0-9]/g, "")}@broadcast.com`,
+            role: mapped,
+            divisi: ang.divisi,
+            jabatan: ang.jabatan,
+            noHp: ang.no_hp,
+            nip: ang.nis,
+            tingkatKelas: (tKelas as any) || "VIII",
+            rombelKelas: rKelas || "A",
+            nisn: ang.nisn,
+            daftarSebagaiAnggotaTetap: false,
+          });
+          setIsPembinaModalOpen(true);
+        }}
       />
 
       {/* ── Modal Edit Anggota (Pembina, Admin, Sekretaris) ─────────────────── */}
