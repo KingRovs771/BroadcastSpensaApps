@@ -82,15 +82,55 @@ export function ImportAnggotaModal({
   if (!isOpen) return null;
 
 
-  // ── Import ke Supabase ─────────────────────────────────────────────────────
+  // ── Import ke Supabase (via Server API Route dengan fallback client upsert) ─
   const handleImport = async () => {
     if (!parseResult || parseResult.valid.length === 0) return;
     setStep("importing");
-    setImportProgress(0);
+    setImportProgress(20);
+    setErrorMsg(null);
 
     const rows = parseResult.valid;
+
+    try {
+      // 1. Coba import cepat dan aman via Server API Route (menggunakan createAdminClient)
+      const res = await fetch("/api/anggota/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok && json.success) {
+        setImportProgress(100);
+        setImportedCount(json.count || rows.length);
+        setFailedCount(0);
+
+        logAction(
+          "IMPORT_ANGGOTA_CSV",
+          "anggota",
+          "bulk",
+          `Import CSV: ${json.count || rows.length} anggota berhasil diimpor/diperbarui.`
+        );
+
+        await refreshData();
+        if (onImported && json.records) {
+          onImported(json.records as AnggotaRecord[]);
+        }
+        setStep("done");
+        return;
+      }
+
+      console.warn("API import notice:", json.error);
+      if (json.error) setErrorMsg(json.error);
+    } catch (apiErr) {
+      console.warn("API import fetch failed, falling back to direct client:", apiErr);
+    }
+
+    // 2. Fallback: Eksekusi langsung via Supabase client dengan upsert
     let success = 0;
     let failed = 0;
+    let lastError = "";
     const importedRecords: AnggotaRecord[] = [];
 
     for (let i = 0; i < rows.length; i++) {
@@ -98,29 +138,34 @@ export function ImportAnggotaModal({
       try {
         const { data, error } = await supabase
           .from("anggota")
-          .insert({
-            tipe: row.tipe,
-            nama_lengkap: row.nama_lengkap,
-            nis: row.nis,
-            nisn: row.nisn || null,
-            kelas: row.kelas,
-            jabatan: row.jabatan,
-            divisi: row.divisi || null,
-            tahun_ajaran: row.tahun_ajaran,
-            status: row.status,
-            no_hp: row.no_hp || null,
-          })
+          .upsert(
+            {
+              tipe: row.tipe,
+              nama_lengkap: row.nama_lengkap,
+              nis: row.nis,
+              nisn: row.nisn || null,
+              kelas: row.kelas,
+              jabatan: row.jabatan,
+              divisi: row.tipe === "tetap" ? (row.divisi || null) : null,
+              tahun_ajaran: row.tahun_ajaran,
+              status: row.status,
+              no_hp: row.no_hp || null,
+            },
+            { onConflict: "nis" }
+          )
           .select()
           .single();
 
         if (error) {
-          // NIS duplikat → lewati tanpa crash
+          console.error(`Error importing row ${row._rowIndex} (${row.nama_lengkap}):`, error);
+          lastError = error.message;
           failed++;
         } else if (data) {
           success++;
           importedRecords.push(data as AnggotaRecord);
         }
-      } catch {
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : "Gagal menyimpan baris";
         failed++;
       }
 
@@ -132,7 +177,7 @@ export function ImportAnggotaModal({
         "IMPORT_ANGGOTA_CSV",
         "anggota",
         "bulk",
-        `Import CSV: ${success} anggota berhasil ditambahkan, ${failed} gagal.`
+        `Import CSV: ${success} anggota berhasil ditambahkan/diperbarui, ${failed} gagal.`
       );
       await refreshData();
       if (onImported && importedRecords.length > 0) {
@@ -142,6 +187,9 @@ export function ImportAnggotaModal({
 
     setImportedCount(success);
     setFailedCount(failed);
+    if (failed > 0 && lastError) {
+      setErrorMsg(lastError);
+    }
     setStep("done");
   };
 
@@ -485,9 +533,10 @@ export function ImportAnggotaModal({
                 </div>
               </div>
               {failedCount > 0 && (
-                <p className="text-[11px] text-amber-400">
-                  Baris yang dilewati kemungkinan memiliki NIS yang sudah terdaftar di database.
-                </p>
+                <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 max-w-sm text-left">
+                  <p className="font-semibold text-amber-400">Catatan:</p>
+                  <p className="mt-0.5">{errorMsg || "Beberapa baris data mungkin memiliki NIS yang duplikat atau format tidak sesuai."}</p>
+                </div>
               )}
               <div className="flex gap-3 pt-2">
                 <button
