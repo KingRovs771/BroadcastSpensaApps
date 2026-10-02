@@ -98,6 +98,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "administrator",
       "pembina",
       "ketua_broadcast",
+      "sekretaris",
       "ketua_divisi",
     ],
     // Hanya Ketua Divisi Fotografer

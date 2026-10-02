@@ -38,6 +38,7 @@ import {
   Phone,
   Plus,
   Key,
+  Camera,
 } from "lucide-react";
 
 export default function PembinaDashboardPage() {
@@ -133,7 +134,14 @@ export default function PembinaDashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/agenda-foto"
+              className="px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-2 text-white text-xs font-bold border border-studio-border-subtle flex items-center gap-2 transition-colors min-h-[44px]"
+            >
+              <Camera className="w-4 h-4 text-spectrum-cyan" />
+              <span>Agenda Foto</span>
+            </Link>
             <Link
               href="/keuangan-pembina"
               className="px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-2 text-white text-xs font-bold border border-studio-border-subtle flex items-center gap-2 transition-colors min-h-[44px]"
