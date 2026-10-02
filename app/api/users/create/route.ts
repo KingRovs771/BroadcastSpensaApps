@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // 1. Buat user via Supabase Auth Admin dengan email_confirm: true (TANPA VERIFIKASI EMAIL)
+    // 1. Coba buat user baru via Supabase Auth Admin
+    let userId = "";
     const { data: authUser, error: authError } =
       await adminClient.auth.admin.createUser({
         email: cleanEmail,
@@ -51,26 +52,77 @@ export async function POST(request: NextRequest) {
       });
 
     if (authError) {
-      if (authError.message.includes("User already registered") || authError.message.includes("already exists")) {
+      const isAlreadyExists =
+        authError.message.includes("User already registered") ||
+        authError.message.includes("already exists") ||
+        authError.message.includes("already been registered");
+
+      if (!isAlreadyExists) {
+        // Error lain yang bukan duplikasi email — kembalikan apa adanya
+        return NextResponse.json(
+          { error: authError.message, fallbackToClient: true },
+          { status: 400 }
+        );
+      }
+
+      // ── Recovery: Email sudah ada di auth.users (mungkin anggota yang belum punya profil) ──
+      // Cari user yang sudah ada via listUsers dengan filter email
+      const { data: listData, error: listError } =
+        await adminClient.auth.admin.listUsers({ perPage: 1000 });
+
+      if (listError || !listData) {
+        return NextResponse.json(
+          { error: "Gagal mencari akun yang sudah ada: " + (listError?.message ?? "unknown") },
+          { status: 500 }
+        );
+      }
+
+      const existingUser = listData.users.find(
+        (u) => u.email?.toLowerCase() === cleanEmail
+      );
+
+      if (!existingUser) {
+        // Tidak ditemukan padahal error bilang sudah ada — kembalikan error asli
         return NextResponse.json(
           { error: "Email ini sudah terdaftar di sistem. Gunakan email lain." },
           { status: 409 }
         );
       }
-      return NextResponse.json(
-        { error: authError.message, fallbackToClient: true },
-        { status: 400 }
-      );
-    }
 
-    if (!authUser?.user?.id) {
-      return NextResponse.json(
-        { error: "Gagal membuat user di auth.users.", fallbackToClient: true },
-        { status: 500 }
-      );
-    }
+      userId = existingUser.id;
 
-    const userId = authUser.user.id;
+      // Update password agar sesuai yang diinputkan, dan update metadata
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(
+        userId,
+        {
+          password,
+          email_confirm: true,
+          user_metadata: {
+            nama: cleanNama,
+            role,
+            nip: nip?.trim() || undefined,
+            jabatan: jabatan?.trim() || undefined,
+            no_hp: no_hp?.trim() || undefined,
+            divisi: divisi || undefined,
+          },
+        }
+      );
+
+      if (updateError) {
+        return NextResponse.json(
+          { error: "Gagal memperbarui akun yang sudah ada: " + updateError.message },
+          { status: 500 }
+        );
+      }
+    } else {
+      if (!authUser?.user?.id) {
+        return NextResponse.json(
+          { error: "Gagal membuat user di auth.users.", fallbackToClient: true },
+          { status: 500 }
+        );
+      }
+      userId = authUser.user.id;
+    }
 
     // 2. Simpan atau pastikan profil ada di public.profiles
     const { error: profileError } = await adminClient.from("profiles").upsert(
@@ -90,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Akun ${cleanNama} (${role}) berhasil dibuat dan langsung aktif tanpa verifikasi email.`,
+      message: `Akun ${cleanNama} (${role}) berhasil disimpan dan langsung aktif.`,
       user: {
         id: userId,
         nama: cleanNama,
@@ -107,3 +159,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

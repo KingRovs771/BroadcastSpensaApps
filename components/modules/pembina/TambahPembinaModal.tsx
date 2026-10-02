@@ -168,8 +168,10 @@ export function TambahPembinaModal({
 
         const createData = await createRes.json();
 
-        if (createRes.status === 409) {
-          setErrorMsg("Email ini sudah terdaftar di sistem. Gunakan email lain.");
+        if (!createRes.ok && createData.error && createRes.status !== 409) {
+          // Hanya tampilkan error jika bukan kasus recovery email yang sudah ada
+          // (API akan handle recovery otomatis untuk kasus email sudah ada)
+          setErrorMsg(createData.error || "Gagal membuat akun pengguna.");
           setIsLoading(false);
           return;
         }
