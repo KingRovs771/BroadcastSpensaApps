@@ -1,4 +1,4 @@
-﻿import { AnggotaRecord } from "@/lib/mock/store";
+import { AnggotaRecord } from "@/lib/mock/store";
 
 /**
  * Utility untuk mengekspor data anggota (Ekskul / Tetap / Semua) ke format CSV / Excel
@@ -71,12 +71,24 @@ export interface ParseCSVResult {
 }
 
 /**
- * Mem-parse CSV yang formatnya sama persis dengan hasil exportAnggotaToCSV().
+ * Mem-parse CSV hasil exportAnggotaToCSV() atau file CSV yang dibuka/disimpan ulang
+ * via Excel Indonesia (delimiter ; dan notasi saintifik untuk angka besar).
+ *
+ * Perbaikan:
+ * - Auto-detect delimiter: koma (,) vs titik koma (;)
+ * - Handle scientific notation: 1,12E+08 → "112000000"
+ * - Lebih toleran: kelas kosong tidak membuat baris invalid
  */
 export function parseAnggotaFromCSV(csvText: string): ParseCSVResult {
   const cleaned = csvText.replace(/^\uFEFF/, "").trim();
   const lines = cleaned.split(/\r?\n/);
   if (lines.length < 2) return { valid: [], invalid: [], total: 0 };
+
+  // ── Auto-detect delimiter: hitung jumlah `;` vs `,` pada baris header ──
+  const headerLine = lines[0];
+  const semicolonCount = (headerLine.match(/;/g) || []).length;
+  const commaCount = (headerLine.match(/,/g) || []).length;
+  const delimiter = semicolonCount > commaCount ? ";" : ",";
 
   const dataLines = lines.slice(1).filter((l) => l.trim() !== "");
   const valid: ImportedAnggotaRow[] = [];
@@ -84,21 +96,23 @@ export function parseAnggotaFromCSV(csvText: string): ParseCSVResult {
 
   dataLines.forEach((line, idx) => {
     const rowIndex = idx + 2;
-    const cols = parseCSVLine(line);
+    const cols = parseCSVLine(line, delimiter);
     const [, namaCol, tipeCol, nisCol, nisnCol, kelasCol, jabatanCol, divisiCol, tahunCol, statusCol, hpCol] = cols;
     const errors: string[] = [];
 
     const nama = (namaCol || "").trim();
     if (!nama) errors.push("Nama Lengkap kosong");
 
-    const nis = (nisCol || "").replace(/^'+/, "").trim();
+    // Bersihkan NIS dari prefix petik dan scientific notation
+    const nis = cleanNumericField(nisCol);
     if (!nis) errors.push("NIS kosong");
 
-    const nisnRaw = (nisnCol || "").replace(/^'+/, "").trim();
-    const nisn = nisnRaw === "-" || nisnRaw === "" ? undefined : nisnRaw;
+    // NISN boleh kosong — tidak wajib
+    const nisnClean = cleanNumericField(nisnCol);
+    const nisn = nisnClean || undefined;
 
-    const kelas = (kelasCol || "").trim();
-    if (!kelas || kelas === "-") errors.push("Kelas kosong");
+    // Kelas tidak wajib — bisa kosong
+    const kelas = (kelasCol || "").trim().replace(/^-$/, "");
 
     const jabatan = (jabatanCol || "").replace(/^"+|"+$/g, "").trim() || "Anggota";
     const divisiRaw = (divisiCol || "").replace(/^"+|"+$/g, "").trim();
@@ -114,13 +128,22 @@ export function parseAnggotaFromCSV(csvText: string): ParseCSVResult {
     };
     const status = resolveStatus(statusCol || "aktif");
 
-    const hpRaw = (hpCol || "").replace(/^'+/, "").trim();
-    const no_hp = hpRaw === "-" || hpRaw === "" ? undefined : hpRaw;
+    const no_hp = cleanNumericField(hpCol) || undefined;
     const tipe: "tetap" | "ekskul" = (tipeCol || "").toLowerCase().includes("ekskul") ? "ekskul" : "tetap";
 
     const row: ImportedAnggotaRow = {
-      nama_lengkap: nama, tipe, nis, nisn, kelas, jabatan, divisi,
-      tahun_ajaran, status, no_hp, _rowIndex: rowIndex, _errors: errors,
+      nama_lengkap: nama,
+      tipe,
+      nis,
+      nisn,
+      kelas,
+      jabatan,
+      divisi,
+      tahun_ajaran,
+      status,
+      no_hp,
+      _rowIndex: rowIndex,
+      _errors: errors,
     };
 
     if (errors.length === 0) valid.push(row);
@@ -129,6 +152,7 @@ export function parseAnggotaFromCSV(csvText: string): ParseCSVResult {
 
   return { valid, invalid, total: dataLines.length };
 }
+
 
 /** Download template CSV kosong siap diisi. */
 export function downloadImportTemplate(tipe: "tetap" | "ekskul" = "tetap") {
@@ -154,8 +178,8 @@ export function downloadImportTemplate(tipe: "tetap" | "ekskul" = "tetap") {
   document.body.removeChild(link);
 }
 
-/** Helper: parse satu baris CSV dengan benar (handle quoted fields) */
-function parseCSVLine(line: string): string[] {
+/** Helper: parse satu baris CSV dengan benar (handle quoted fields, support multiple delimiters) */
+function parseCSVLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -165,13 +189,46 @@ function parseCSVLine(line: string): string[] {
     if (ch === '"') {
       if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
       else inQuotes = !inQuotes;
-    } else if (ch === "," && !inQuotes) {
-      result.push(current);
+    } else if (ch === delimiter && !inQuotes) {
+      result.push(current.trim());
       current = "";
     } else {
       current += ch;
     }
   }
-  result.push(current);
+  result.push(current.trim());
   return result;
+}
+
+/**
+ * Bersihkan field numerik dari:
+ * - Prefix petik (') yang ditambahkan saat ekspor: '16279 → 16279
+ * - Scientific notation dari Excel: 1,12E+08 atau 1.12E+08 → 112000000
+ * - Spasi dan karakter tidak perlu
+ */
+function cleanNumericField(raw: string | undefined): string {
+  if (!raw) return "";
+  let s = raw.replace(/^'+/, "").trim();
+  if (s === "-" || s === "") return "";
+
+  // Deteksi scientific notation: angka seperti 1,12E+08 atau 1.12E+08
+  // Excel Indonesia menggunakan koma sebagai desimal: 1,12E+08
+  const sciNotationRegex = /^([0-9]+)[,.]([0-9]+)[Ee][+]?([0-9]+)$/;
+  const sciMatch = s.match(sciNotationRegex);
+  if (sciMatch) {
+    // Konversi: mantissa × 10^exponent → integer string
+    const mantissa = parseFloat(sciMatch[1] + "." + sciMatch[2]);
+    const exponent = parseInt(sciMatch[3], 10);
+    const value = Math.round(mantissa * Math.pow(10, exponent));
+    return value.toString();
+  }
+
+  // Hapus titik/koma ribuan jika ada: 16.279 → 16279
+  // Hanya jika hasilnya masih berupa angka
+  const cleaned = s.replace(/[.,]/g, "");
+  if (/^\d+$/.test(cleaned) && cleaned.length <= 20) {
+    return cleaned;
+  }
+
+  return s;
 }
