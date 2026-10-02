@@ -53,19 +53,36 @@ export default function KasPage() {
       (currentUser.email && a.nis && currentUser.email.startsWith(a.nis))
   );
 
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const currentYearMonth = todayStr.slice(0, 7); // e.g. "2026-10"
+  const effectiveDate = kasSettings.effective_from || "2026-10-01";
+
+  // Saring record pembayaran kas agar:
+  // 1. Tidak menampilkan bulan sebelum pelaksanaan (misal: September jika pelaksanaan Oktober)
+  // 2. Tidak menampilkan 2 bulan ke depan (hanya mengikuti hari ini / bulan berjalan)
+  const activeKasPembayaranList = kasPembayaranList.filter((k) => {
+    // Jangan tampilkan jika sebelum tanggal aturan ditentukan
+    if (k.periode_start < effectiveDate) return false;
+    // Jangan tampilkan jika bulan berada di masa depan (2 bulan ke depan: Nov, Des, Jan...)
+    const itemYearMonth = k.periode_start.slice(0, 7);
+    if (itemYearMonth > currentYearMonth) return false;
+    return true;
+  });
+
   const memberKasList = linkedAnggota
-    ? kasPembayaranList.filter((k) => k.anggota_id === linkedAnggota.id)
+    ? activeKasPembayaranList.filter((k) => k.anggota_id === linkedAnggota.id)
     : [];
   const myPaidWeeks = memberKasList.filter((k) => k.status === "lunas");
   const myUnpaidWeeks = memberKasList.filter((k) => k.status === "belum");
   const nominalTarif = kasSettings.nominal || 2000;
   const myTunggakanNominal = myUnpaidWeeks.length * nominalTarif;
 
-  const summary = calculateKasSummary(kasPembayaranList);
+  const summary = calculateKasSummary(activeKasPembayaranList);
 
-  // Extract distinct periods sorted chronologically by start date
+  // Extract distinct periods sorted chronologically by start date dari activeKasPembayaranList saja
   const periodMap = new Map<string, string>();
-  kasPembayaranList.forEach((p) => {
+  activeKasPembayaranList.forEach((p) => {
     if (!periodMap.has(p.periode_label)) {
       periodMap.set(p.periode_label, p.periode_start);
     }
@@ -90,7 +107,7 @@ export default function KasPage() {
       return;
     }
 
-    const currentItem = kasPembayaranList.find(
+    const currentItem = activeKasPembayaranList.find(
       (item) => item.anggota_id === anggotaId && item.periode_label === periodeLabel
     );
 
@@ -150,6 +167,8 @@ export default function KasPage() {
 
     let periodsToInsert: Array<{ start: string; end: string; label: string }> = [];
 
+    const todayDate = now.getDate();
+
     if (periodeType === "bulanan") {
       periodsToInsert = [
         {
@@ -163,22 +182,30 @@ export default function KasPage() {
         {
           start: `${year}-${String(month).padStart(2, "0")}-01`,
           end: `${year}-${String(month).padStart(2, "0")}-14`,
-          label: `D1 ${monthStr}`,
+          label: `D1 ${monthStr} ${year}`,
         },
-        {
+      ];
+      if (todayDate >= 15) {
+        periodsToInsert.push({
           start: `${year}-${String(month).padStart(2, "0")}-15`,
           end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-          label: `D2 ${monthStr}`,
-        },
-      ];
+          label: `D2 ${monthStr} ${year}`,
+        });
+      }
     } else {
-      // mingguan
+      // mingguan: hanya generate minggu yang sudah masuk sampai hari ini
       periodsToInsert = [
         { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-07`, label: `W1 ${monthStr}` },
-        { start: `${year}-${String(month).padStart(2, "0")}-08`, end: `${year}-${String(month).padStart(2, "0")}-14`, label: `W2 ${monthStr}` },
-        { start: `${year}-${String(month).padStart(2, "0")}-15`, end: `${year}-${String(month).padStart(2, "0")}-21`, label: `W3 ${monthStr}` },
-        { start: `${year}-${String(month).padStart(2, "0")}-22`, end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`, label: `W4 ${monthStr}` },
       ];
+      if (todayDate >= 8) {
+        periodsToInsert.push({ start: `${year}-${String(month).padStart(2, "0")}-08`, end: `${year}-${String(month).padStart(2, "0")}-14`, label: `W2 ${monthStr}` });
+      }
+      if (todayDate >= 15) {
+        periodsToInsert.push({ start: `${year}-${String(month).padStart(2, "0")}-15`, end: `${year}-${String(month).padStart(2, "0")}-21`, label: `W3 ${monthStr}` });
+      }
+      if (todayDate >= 22) {
+        periodsToInsert.push({ start: `${year}-${String(month).padStart(2, "0")}-22`, end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`, label: `W4 ${monthStr}` });
+      }
     }
 
     const activeTetapMembers = anggotaList.filter((a) => a.tipe === "tetap" && a.status === "aktif");
@@ -230,8 +257,8 @@ export default function KasPage() {
 
   const handleExportCSV = () => {
     const headers = ["Nama Siswa", "Kelas", "Divisi", "Total Tunggakan", "Status"];
-    const rows = anggotaList.map((ang) => {
-      const arrears = getAnggotaTunggakan(kasPembayaranList, ang.id);
+    const rows = filteredAnggota.map((ang) => {
+      const arrears = getAnggotaTunggakan(activeKasPembayaranList, ang.id);
       const totalArrears = arrears.reduce((sum, item) => sum + item.nominal, 0);
       return [
         ang.nama_lengkap,
@@ -503,7 +530,7 @@ export default function KasPage() {
             </thead>
             <tbody className="divide-y divide-studio-border-subtle text-xs">
               {filteredAnggota.map((ang) => {
-                const arrears = getAnggotaTunggakan(kasPembayaranList, ang.id);
+                const arrears = getAnggotaTunggakan(activeKasPembayaranList, ang.id);
                 const isIndebted = arrears.length > 0;
 
                 return (
@@ -541,7 +568,7 @@ export default function KasPage() {
 
                     {/* Period Checkboxes */}
                     {periods.map((p) => {
-                      const record = kasPembayaranList.find(
+                      const record = activeKasPembayaranList.find(
                         (k) => k.anggota_id === ang.id && k.periode_label === p
                       );
                       const isLunas = record?.status === "lunas";
@@ -621,7 +648,7 @@ export default function KasPage() {
         <TunggakanDrawer
           anggota={selectedAnggotaForDrawer}
           tunggakanList={getAnggotaTunggakan(
-            kasPembayaranList,
+            activeKasPembayaranList,
             selectedAnggotaForDrawer.id
           )}
           isOpen={true}

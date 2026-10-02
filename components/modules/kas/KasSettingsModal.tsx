@@ -117,17 +117,63 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         `Menyesuaikan nominal ${formatIDR(nominal)} (${periodeType}) mulai ${effectiveFrom}...`
       );
 
-      // A. Perbarui nominal untuk pembayaran yang belum lunas pada atau setelah effectiveFrom
+      // A. Bersihkan tagihan belum lunas sebelum tanggal aturan ditentukan (misal: September)
       await supabase
         .from("kas_pembayaran")
-        .update({ nominal: Number(nominal) })
-        .eq("status", "belum")
-        .gte("periode_start", effectiveFrom);
+        .delete()
+        .lt("periode_start", effectiveFrom)
+        .eq("status", "belum");
 
-      // B. Generate periode baru mulai dari bulan tanggal aturan ditentukan
+      // B. Bersihkan tagihan belum lunas untuk bulan-bulan mendatang (2 bulan ke depan: Nov, Des, Jan, dll)
       const effDate = new Date(effectiveFrom);
-      const startYear = effDate.getFullYear();
-      const startMonth = effDate.getMonth(); // 0-indexed
+      const y = effDate.getFullYear();
+      const m = effDate.getMonth() + 1;
+      const lastDayOfCurMonth = new Date(y, m, 0).getDate();
+      const endOfCurMonth = `${y}-${String(m).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`;
+
+      await supabase
+        .from("kas_pembayaran")
+        .delete()
+        .gt("periode_start", endOfCurMonth)
+        .eq("status", "belum");
+
+      // C. Bersihkan tagihan belum lunas di bulan ini yang berformat lama/berbeda (agar W1..W4 dan D1..D2 tidak bercampur)
+      const { data: curUnpaid } = await supabase
+        .from("kas_pembayaran")
+        .select("id, periode_label")
+        .gte("periode_start", effectiveFrom)
+        .lte("periode_start", endOfCurMonth)
+        .eq("status", "belum");
+
+      if (curUnpaid && curUnpaid.length > 0) {
+        const idsToRemove: string[] = [];
+        for (const item of curUnpaid) {
+          const isBulananLabel = item.periode_label.toLowerCase().startsWith("bulan");
+          const isDwimingguanLabel = item.periode_label.toUpperCase().startsWith("D");
+          const isMingguanLabel = item.periode_label.toUpperCase().startsWith("W");
+
+          if (periodeType === "bulanan" && !isBulananLabel) {
+            idsToRemove.push(item.id);
+          } else if (periodeType === "dwimingguan" && !isDwimingguanLabel) {
+            idsToRemove.push(item.id);
+          } else if (periodeType === "mingguan" && !isMingguanLabel) {
+            idsToRemove.push(item.id);
+          }
+        }
+        if (idsToRemove.length > 0) {
+          for (let i = 0; i < idsToRemove.length; i += 100) {
+            await supabase
+              .from("kas_pembayaran")
+              .delete()
+              .in("id", idsToRemove.slice(i, i + 100));
+          }
+        }
+      }
+
+      // D. Generate HANYA periode aktif sampai hari ini / bulan berjalan ("mengikuti hari ini", TIDAK ADA 2 bulan ke depan)
+      const today = new Date();
+      const todayDate = today.getDate(); // 1 - 31
+      const isCurrentMonth = today.getFullYear() === y && today.getMonth() + 1 === m;
 
       const monthNames = [
         "Jan",
@@ -143,6 +189,8 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         "Nov",
         "Des",
       ];
+      const mStr = monthNames[m - 1];
+      const lastDay = new Date(y, m, 0).getDate();
 
       const generatedPeriods: Array<{
         start: string;
@@ -150,48 +198,50 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         label: string;
       }> = [];
 
-      // Generate untuk 6 bulan ke depan dari tanggal efektif
-      for (let offset = 0; offset < 6; offset++) {
-        const d = new Date(startYear, startMonth + offset, 1);
-        const y = d.getFullYear();
-        const m = d.getMonth() + 1;
-        const mStr = monthNames[m - 1];
-        const lastDay = new Date(y, m, 0).getDate();
-
-        if (periodeType === "bulanan") {
-          generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-01`,
-            end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-            label: `Bulan ${mStr} ${y}`,
-          });
-        } else if (periodeType === "dwimingguan") {
-          generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-01`,
-            end: `${y}-${String(m).padStart(2, "0")}-14`,
-            label: `D1 ${mStr} ${y}`,
-          });
+      if (periodeType === "bulanan") {
+        // Hanya 1 periode bulan berjalan
+        generatedPeriods.push({
+          start: `${y}-${String(m).padStart(2, "0")}-01`,
+          end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+          label: `Bulan ${mStr} ${y}`,
+        });
+      } else if (periodeType === "dwimingguan") {
+        // D1: 01 - 14
+        generatedPeriods.push({
+          start: `${y}-${String(m).padStart(2, "0")}-01`,
+          end: `${y}-${String(m).padStart(2, "0")}-14`,
+          label: `D1 ${mStr} ${y}`,
+        });
+        // D2: 15 - lastDay (hanya jika sudah tanggal 15 ke atas atau lewat)
+        if (!isCurrentMonth || todayDate >= 15) {
           generatedPeriods.push({
             start: `${y}-${String(m).padStart(2, "0")}-15`,
             end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
             label: `D2 ${mStr} ${y}`,
           });
-        } else {
-          // mingguan
-          generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-01`,
-            end: `${y}-${String(m).padStart(2, "0")}-07`,
-            label: `W1 ${mStr}`,
-          });
+        }
+      } else {
+        // mingguan: W1, dan W2-W4 sesuai tanggal berjalan ("mengikuti hari ini")
+        generatedPeriods.push({
+          start: `${y}-${String(m).padStart(2, "0")}-01`,
+          end: `${y}-${String(m).padStart(2, "0")}-07`,
+          label: `W1 ${mStr}`,
+        });
+        if (!isCurrentMonth || todayDate >= 8) {
           generatedPeriods.push({
             start: `${y}-${String(m).padStart(2, "0")}-08`,
             end: `${y}-${String(m).padStart(2, "0")}-14`,
             label: `W2 ${mStr}`,
           });
+        }
+        if (!isCurrentMonth || todayDate >= 15) {
           generatedPeriods.push({
             start: `${y}-${String(m).padStart(2, "0")}-15`,
             end: `${y}-${String(m).padStart(2, "0")}-21`,
             label: `W3 ${mStr}`,
           });
+        }
+        if (!isCurrentMonth || todayDate >= 22) {
           generatedPeriods.push({
             start: `${y}-${String(m).padStart(2, "0")}-22`,
             end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
@@ -200,34 +250,27 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         }
       }
 
-      // Masukkan periode baru bagi anggota tetap yang belum memilikinya
-      const existingSet = new Set(
-        kasPembayaranList.map((p) => `${p.anggota_id}_${p.periode_start}`)
-      );
-
+      // Masukkan periode baru bagi anggota tetap
       const inserts: any[] = [];
       for (const mem of membersToProcess) {
         for (const p of generatedPeriods) {
-          if (!existingSet.has(`${mem.id}_${p.start}`)) {
-            inserts.push({
-              anggota_id: mem.id,
-              periode_start: p.start,
-              periode_end: p.end,
-              periode_label: p.label,
-              nominal: Number(nominal),
-              status: "belum",
-            });
-          }
+          inserts.push({
+            anggota_id: mem.id,
+            periode_start: p.start,
+            periode_end: p.end,
+            periode_label: p.label,
+            nominal: Number(nominal),
+            status: "belum",
+          });
         }
       }
 
       if (inserts.length > 0) {
         for (let i = 0; i < inserts.length; i += 100) {
           const chunk = inserts.slice(i, i + 100);
-          const { error: insErr } = await supabase.from("kas_pembayaran").insert(chunk);
-          if (insErr) {
-            console.warn("Insert period chunk warning:", insErr.message);
-          }
+          await supabase
+            .from("kas_pembayaran")
+            .upsert(chunk, { onConflict: "anggota_id,periode_start" });
         }
       }
 
