@@ -37,6 +37,16 @@ export default function NotulenPage() {
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
   const isKetuaOrAdmin =
     currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
+  const isPrivilegedNotulen =
+    currentUser.role === "sekretaris" ||
+    currentUser.role === "ketua_broadcast" ||
+    currentUser.role === "pembina" ||
+    currentUser.role === "administrator";
+
+  // Divisi Kreatif, Ketua Divisi, dan Anggota hanya melihat notulen yang telah disahkan (status === 'final')
+  const visibleNotulenList = isPrivilegedNotulen
+    ? notulenList
+    : notulenList.filter((n) => n.status === "final");
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,98 +157,110 @@ export default function NotulenPage() {
         )}
       </div>
 
-      {/* Anggota Read-Only Banner */}
-      {isAnggota && (
+      {/* Viewer Read-Only Banner (Divisi Kreatif, Ketua Divisi, Anggota) */}
+      {!isPrivilegedNotulen && (
         <div className="flex items-center gap-3 p-3.5 bg-spectrum-cyan/10 border border-spectrum-cyan/30 rounded-2xl">
           <Info className="w-4 h-4 text-spectrum-cyan flex-shrink-0" />
           <p className="text-xs text-studio-text-secondary">
-            <strong className="text-spectrum-cyan">Mode Pantau Anggota (Hanya Lihat):</strong> Anda memiliki hak akses penuh untuk membaca seluruh agenda rapat, uraian pembahasan, serta keputusan musyawarah yang telah disepakati pengurus.
+            <strong className="text-spectrum-cyan">Arsip Risalah Resmi (Telah Disahkan):</strong> Sebagai {currentUser.role.replace("_", " ")}, Anda dapat membaca seluruh agenda, pembahasan, dan keputusan rapat yang telah disahkan serta dikunci oleh pimpinan broadcast.
           </p>
         </div>
       )}
 
       {/* List of Notulen */}
       <div className="space-y-4">
-        {notulenList.map((notulen) => {
-          const isFinal = notulen.status === "final";
+        {visibleNotulenList.length === 0 ? (
+          <div className="p-8 text-center bg-surface-1 border border-studio-border-subtle rounded-2xl">
+            <FileText className="w-8 h-8 text-studio-text-muted mx-auto mb-2 opacity-50" />
+            <p className="text-xs font-semibold text-white">Belum Ada Risalah Rapat Resmi</p>
+            <p className="text-[11px] text-studio-text-secondary mt-1">
+              {!isPrivilegedNotulen
+                ? "Saat ini belum ada notulen rapat yang telah disahkan dan dikunci oleh Ketua Broadcast."
+                : "Belum ada notulen yang dibuat atau disimpan di sistem."}
+            </p>
+          </div>
+        ) : (
+          visibleNotulenList.map((notulen) => {
+            const isFinal = notulen.status === "final";
 
-          return (
-            <div
-              key={notulen.id}
-              className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <StatusBadge
-                    label={isFinal ? "FINAL (TERKUNCI)" : "DRAFT (TERBUKA)"}
-                    variant={isFinal ? "jade" : "gold"}
-                  />
-                  <span className="text-[11px] font-mono text-studio-text-muted flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {notulen.tanggal_rapat}
-                  </span>
-                  <span className="text-[11px] font-mono text-studio-text-muted flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {notulen.tempat}
-                  </span>
-                </div>
+            return (
+              <div
+                key={notulen.id}
+                className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle hover:border-studio-border-medium transition-all space-y-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge
+                      label={isFinal ? "FINAL (TERKUNCI)" : "DRAFT (TERBUKA)"}
+                      variant={isFinal ? "jade" : "gold"}
+                    />
+                    <span className="text-[11px] font-mono text-studio-text-muted flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {notulen.tanggal_rapat}
+                    </span>
+                    <span className="text-[11px] font-mono text-studio-text-muted flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {notulen.tempat}
+                    </span>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  {!isFinal && isKetuaOrAdmin && (
+                  <div className="flex items-center gap-2">
+                    {!isFinal && isKetuaOrAdmin && (
+                      <button
+                        onClick={() => handleFinalizeLock(notulen.id)}
+                        aria-label="Kunci dan sahkan notulen"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-spectrum-jade hover:bg-emerald-500 text-ink text-xs font-bold transition-colors shadow-jade min-h-[36px]"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Sahkan & Kunci Notulen</span>
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => handleFinalizeLock(notulen.id)}
-                      aria-label="Kunci dan sahkan notulen"
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-spectrum-jade hover:bg-emerald-500 text-ink text-xs font-bold transition-colors shadow-jade min-h-[36px]"
+                      onClick={() => setSelectedNotulenForView(notulen)}
+                      aria-label="Lihat detail risalah"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-studio-text-secondary hover:text-white text-xs font-semibold border border-studio-border-subtle transition-colors min-h-[36px]"
                     >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Sahkan & Kunci Notulen</span>
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Tinjau Risalah</span>
                     </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-white">{notulen.judul}</h3>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+                      <span className="text-[10px] font-mono font-bold text-spectrum-cyan uppercase block mb-1">
+                        Agenda & Pembahasan:
+                      </span>
+                      <p className="text-studio-text-secondary whitespace-pre-line font-mono text-[11px]">
+                        {notulen.isi_notulen}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+                      <span className="text-[10px] font-mono font-bold text-spectrum-jade uppercase block mb-1">
+                        Keputusan Musyawarah:
+                      </span>
+                      <p className="text-white whitespace-pre-line font-mono text-[11px]">
+                        {notulen.keputusan}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px] font-mono text-studio-text-muted">
+                  <span>Dibuat: {allUsers.find((u) => u.id === notulen.dibuat_oleh)?.nama || notulen.dibuat_oleh || "Sekretaris"}</span>
+                  {notulen.disetujui_oleh && (
+                    <span className="text-spectrum-jade font-semibold">
+                      ✓ Disahkan: {allUsers.find((u) => u.id === notulen.disetujui_oleh)?.nama || notulen.disetujui_oleh || "Ketua Broadcast"}
+                    </span>
                   )}
-
-                  <button
-                    onClick={() => setSelectedNotulenForView(notulen)}
-                    aria-label="Lihat detail risalah"
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-studio-text-secondary hover:text-white text-xs font-semibold border border-studio-border-subtle transition-colors min-h-[36px]"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Tinjau Risalah</span>
-                  </button>
                 </div>
               </div>
-
-              <div>
-                <h3 className="text-base font-bold text-white">{notulen.judul}</h3>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
-                    <span className="text-[10px] font-mono font-bold text-spectrum-cyan uppercase block mb-1">
-                      Agenda & Pembahasan:
-                    </span>
-                    <p className="text-studio-text-secondary whitespace-pre-line font-mono text-[11px]">
-                      {notulen.isi_notulen}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
-                    <span className="text-[10px] font-mono font-bold text-spectrum-jade uppercase block mb-1">
-                      Keputusan Musyawarah:
-                    </span>
-                    <p className="text-white whitespace-pre-line font-mono text-[11px]">
-                      {notulen.keputusan}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px] font-mono text-studio-text-muted">
-                <span>Dibuat: {allUsers.find((u) => u.id === notulen.dibuat_oleh)?.nama || notulen.dibuat_oleh || "Sekretaris"}</span>
-                {notulen.disetujui_oleh && (
-                  <span className="text-spectrum-jade font-semibold">
-                    ✓ Disahkan: {allUsers.find((u) => u.id === notulen.disetujui_oleh)?.nama || notulen.disetujui_oleh || "Ketua Broadcast"}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Modal New Notulen */}

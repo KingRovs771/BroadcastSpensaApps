@@ -45,6 +45,11 @@ export function Sidebar() {
       badge: currentUser.role === "pembina" ? "PEMBINA" : undefined,
     },
     {
+      label: "Profil Saya",
+      href: "/profile",
+      icon: User,
+    },
+    {
       label: "Produksi Dual-Gate",
       href: "/produksi",
       icon: Video,
@@ -101,11 +106,6 @@ export function Sidebar() {
       href: "/pengguna",
       icon: UserCheck,
       badge: "USER",
-    },
-    {
-      label: "Profil Saya",
-      href: "/profile",
-      icon: User,
     },
     {
       label: "Audit Log Sistem",
