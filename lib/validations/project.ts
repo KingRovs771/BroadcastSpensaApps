@@ -22,3 +22,19 @@ export const projectCreateSchema = z.object({
   link_thumbnail: optionalUrl,
   link_finalisasi: optionalUrl,
 });
+
+export const projectUpdateSchema = z.object({
+  nama_project: z.string().min(3, "Nama project minimal 3 karakter").max(200),
+  deskripsi: z.string().optional().nullable(),
+  penanggung_jawab: z.string().min(1, "Penanggung jawab wajib dipilih"),
+  tim: z.array(z.string()).default([]),
+  deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal YYYY-MM-DD").optional().or(z.literal("")).nullable(),
+  status: z.enum(["perencanaan", "proses", "selesai", "tunda"]),
+  progress: z.number().min(0).max(100),
+  divisi: z.enum(DIVISI_OPTIONS),
+  link_video: optionalUrl.nullable(),
+  link_audio: optionalUrl.nullable(),
+  link_thumbnail: optionalUrl.nullable(),
+  link_finalisasi: optionalUrl.nullable(),
+});
+

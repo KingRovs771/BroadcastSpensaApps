@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { NewProjectModal } from "@/components/modules/project/NewProjectModal";
+import { EditProjectModal } from "@/components/modules/project/EditProjectModal";
+import { DeleteProjectModal } from "@/components/modules/project/DeleteProjectModal";
+import { FinishProjectModal } from "@/components/modules/project/FinishProjectModal";
 import { ProjectKanban } from "@/lib/mock/store";
 import {
   Kanban,
@@ -12,13 +15,19 @@ import {
   User,
   ArrowRight,
   ArrowLeft,
-  Eye,
+  Edit,
+  Trash2,
+  CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 
 export default function ProjectPage() {
   const { currentUser, projectList, allUsers, refreshData, logAction, supabase } = useSession();
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [selectedEditProject, setSelectedEditProject] = useState<ProjectKanban | null>(null);
+  const [selectedDeleteProject, setSelectedDeleteProject] = useState<ProjectKanban | null>(null);
+  const [selectedFinishProject, setSelectedFinishProject] = useState<ProjectKanban | null>(null);
   const [filterDivisi, setFilterDivisi] = useState<string>("all");
 
   // Seluruh anggota di Divisi Kreatif, serta Ketua Umum, Admin, Pembina, dan Ketua Divisi
@@ -30,6 +39,41 @@ export default function ProjectPage() {
     currentUser.role === "administrator" ||
     currentUser.role === "pembina" ||
     currentUser.role === "ketua_divisi";
+
+  const canEditProject = (project: ProjectKanban) => {
+    return (
+      currentUser.role === "administrator" ||
+      currentUser.role === "pembina" ||
+      currentUser.role === "ketua_broadcast" ||
+      currentUser.role === "ketua_divisi" ||
+      currentUser.divisi === "Kreatif" ||
+      currentUser.role === "div_kreatif" ||
+      currentUser.id === project.penanggung_jawab ||
+      (Array.isArray(project.tim) && project.tim.includes(currentUser.id))
+    );
+  };
+
+  const canDeleteProject = (project: ProjectKanban) => {
+    return (
+      currentUser.role === "administrator" ||
+      currentUser.role === "pembina" ||
+      currentUser.role === "ketua_broadcast" ||
+      currentUser.role === "ketua_divisi" ||
+      currentUser.id === project.penanggung_jawab
+    );
+  };
+
+  const canFinishProject = (project: ProjectKanban) => {
+    return (
+      currentUser.role === "administrator" ||
+      currentUser.role === "pembina" ||
+      currentUser.role === "ketua_broadcast" ||
+      currentUser.role === "ketua_divisi" ||
+      currentUser.divisi === "Kreatif" ||
+      currentUser.role === "div_kreatif" ||
+      currentUser.id === project.penanggung_jawab
+    );
+  };
 
   const columns: Array<{
     id: ProjectKanban["status"];
@@ -69,9 +113,13 @@ export default function ProjectPage() {
   ) => {
     const existing = projectList.find((p) => p.id === projectId);
     const progress =
-      nextStatus === "selesai" ? 100 : nextStatus === "perencanaan" ? 10 : existing?.progress || 0;
+      nextStatus === "selesai"
+        ? existing?.progress && existing.progress >= 80 ? existing.progress : 90
+        : nextStatus === "perencanaan"
+        ? 10
+        : existing?.progress || 50;
     const published_at =
-      nextStatus === "selesai" ? new Date().toISOString().split("T")[0] : null;
+      nextStatus === "selesai" ? existing?.published_at || null : null;
 
     try {
       const { error } = await supabase
@@ -137,7 +185,7 @@ export default function ProjectPage() {
             Agenda Project Kanban
           </h1>
           <p className="text-xs text-studio-text-secondary mt-1">
-            Visualisasi alur kerja project non-reguler, dokumentasi Google Drive, dan atribusi PJ.
+            Visualisasi alur kerja project non-reguler, pembagian tim, dan pemantauan tautan produksi.
           </p>
         </div>
 
@@ -184,136 +232,225 @@ export default function ProjectPage() {
                     Belum ada project
                   </div>
                 ) : (
-                  colProjects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="bg-surface-2 border border-studio-border-subtle hover:border-studio-border-medium rounded-xl p-3.5 space-y-2.5 shadow-sm transition-all group"
-                    >
-                      {/* Badge & Division */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-3 text-spectrum-cyan border border-studio-border-subtle">
-                          {project.divisi}
-                        </span>
-                        {project.deadline && (
-                          <span className="text-[10px] font-mono text-studio-text-muted flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {project.deadline}
-                          </span>
-                        )}
-                      </div>
+                  colProjects.map((project) => {
+                    const isFinished =
+                      project.status === "selesai" &&
+                      (project.progress === 100 || !!project.published_at);
 
-                      {/* Project Title & Description */}
-                      <div>
-                        <h4 className="text-xs font-bold text-white leading-snug">
-                          {project.nama_project}
-                        </h4>
-                        {project.deskripsi && (
-                          <p className="text-[11px] text-studio-text-secondary mt-1 line-clamp-2">
-                            {project.deskripsi}
-                          </p>
-                        )}
-                      </div>
+                    return (
+                      <div
+                        key={project.id}
+                        className="bg-surface-2 border border-studio-border-subtle hover:border-studio-border-medium rounded-xl p-3.5 space-y-2.5 shadow-sm transition-all group"
+                      >
+                        {/* Header: Badge & Actions (Update & Delete) */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-surface-3 text-spectrum-cyan border border-studio-border-subtle">
+                              {project.divisi}
+                            </span>
+                            {project.deadline && (
+                              <span className="text-[10px] font-mono text-studio-text-muted flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {project.deadline}
+                              </span>
+                            )}
+                          </div>
 
-                      {/* Progress slider bar */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-mono text-studio-text-secondary">
-                          <span>Progres Teknis</span>
-                          <span className="font-bold text-white">{project.progress}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          value={project.progress}
-                          onChange={(e) =>
-                            handleProgressChange(project.id, Number(e.target.value))
-                          }
-                          aria-label={`Slider progres untuk ${project.nama_project}`}
-                          className="w-full h-1.5 bg-surface-1 rounded-lg appearance-none cursor-pointer accent-spectrum-cyan"
-                        />
-                      </div>
-
-                      {/* PJ & Links Pill */}
-                      <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px]">
-                        <div className="flex items-center gap-1.5 text-studio-text-secondary">
-                          <User className="w-3 h-3 text-orbital-magenta" />
-                          <span className="truncate max-w-[110px]">
-                            {allUsers.find((u) => u.id === project.penanggung_jawab)?.nama || project.pj_name || "PJ"}
-                          </span>
+                          {/* Action Buttons: Edit & Delete */}
+                          <div className="flex items-center gap-1">
+                            {canEditProject(project) && (
+                              <button
+                                onClick={() => setSelectedEditProject(project)}
+                                aria-label={`Edit project ${project.nama_project}`}
+                                title="Edit Project"
+                                className="p-1 rounded-lg text-studio-text-muted hover:text-spectrum-cyan hover:bg-surface-3 transition-colors"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {canDeleteProject(project) && (
+                              <button
+                                onClick={() => setSelectedDeleteProject(project)}
+                                aria-label={`Hapus project ${project.nama_project}`}
+                                title="Hapus Project"
+                                className="p-1 rounded-lg text-studio-text-muted hover:text-spectrum-crimson hover:bg-surface-3 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
-                        {(project.link_video || project.link_audio || project.link_thumbnail || project.link_finalisasi) && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {project.link_video && (
-                              <a href={project.link_video} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-cyan hover:underline">
-                                🎬<ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            )}
-                            {project.link_audio && (
-                              <a href={project.link_audio} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-lime hover:underline">
-                                🎙<ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            )}
-                            {project.link_thumbnail && (
-                              <a href={project.link_thumbnail} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-0.5 text-[10px] font-mono text-orbital-magenta hover:underline">
-                                🖼<ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            )}
-                            {project.link_finalisasi && (
-                              <a href={project.link_finalisasi} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-tangerine hover:underline">
-                                ✅<ExternalLink className="w-2.5 h-2.5" />
-                              </a>
+                        {/* Project Title & Description */}
+                        <div>
+                          <h4 className="text-xs font-bold text-white leading-snug">
+                            {project.nama_project}
+                          </h4>
+                          {project.deskripsi && (
+                            <p className="text-[11px] text-studio-text-secondary mt-1 line-clamp-2">
+                              {project.deskripsi}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Progress slider bar */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-studio-text-secondary">
+                            <span>Progres Teknis</span>
+                            <span className="font-bold text-white">{project.progress}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={project.progress}
+                            onChange={(e) =>
+                              handleProgressChange(project.id, Number(e.target.value))
+                            }
+                            aria-label={`Slider progres untuk ${project.nama_project}`}
+                            className="w-full h-1.5 bg-surface-1 rounded-lg appearance-none cursor-pointer accent-spectrum-cyan"
+                          />
+                        </div>
+
+                        {/* PJ & Links Pill */}
+                        <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px]">
+                          <div className="flex items-center gap-1.5 text-studio-text-secondary">
+                            <User className="w-3 h-3 text-orbital-magenta" />
+                            <span className="truncate max-w-[110px]">
+                              {allUsers.find((u) => u.id === project.penanggung_jawab)?.nama ||
+                                project.pj_name ||
+                                "PJ"}
+                            </span>
+                          </div>
+
+                          {(project.link_video ||
+                            project.link_audio ||
+                            project.link_thumbnail ||
+                            project.link_finalisasi) && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {project.link_video && (
+                                <a
+                                  href={project.link_video}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Link Video"
+                                  className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-cyan hover:underline"
+                                >
+                                  🎬<ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
+                              {project.link_audio && (
+                                <a
+                                  href={project.link_audio}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Link Audio"
+                                  className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-lime hover:underline"
+                                >
+                                  🎙<ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
+                              {project.link_thumbnail && (
+                                <a
+                                  href={project.link_thumbnail}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Link Thumbnail"
+                                  className="flex items-center gap-0.5 text-[10px] font-mono text-orbital-magenta hover:underline"
+                                >
+                                  🖼<ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
+                              {project.link_finalisasi && (
+                                <a
+                                  href={project.link_finalisasi}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Link Finalisasi"
+                                  className="flex items-center gap-0.5 text-[10px] font-mono text-spectrum-tangerine hover:underline"
+                                >
+                                  ✅<ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* TOMBOL FINISH: Khusus ketika berada di kolom "Selesai" */}
+                        {col.id === "selesai" && (
+                          <div className="pt-2 border-t border-studio-border-subtle/60">
+                            {isFinished ? (
+                              <div className="flex items-center justify-between p-2 rounded-xl bg-spectrum-jade/10 border border-spectrum-jade/30 text-[11px] font-mono">
+                                <div className="flex items-center gap-1.5 text-spectrum-jade font-bold">
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  <span>Project Tuntas (100%)</span>
+                                </div>
+                                {canFinishProject(project) && (
+                                  <button
+                                    onClick={() => setSelectedFinishProject(project)}
+                                    className="text-[10px] text-spectrum-jade hover:underline font-bold"
+                                  >
+                                    Perbarui
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              canFinishProject(project) && (
+                                <button
+                                  onClick={() => setSelectedFinishProject(project)}
+                                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-spectrum-jade hover:bg-emerald-400 text-ink text-xs font-bold transition-all shadow-emerald min-h-[38px]"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  <span>Finish Project</span>
+                                </button>
+                              )
                             )}
                           </div>
                         )}
-                      </div>
 
-                      {/* Move Column Actions */}
-                      <div className="flex items-center justify-between pt-1 border-t border-studio-border-subtle/50 text-[10px] font-mono">
-                        {col.id !== "perencanaan" ? (
-                          <button
-                            onClick={() => {
-                              const prev =
-                                col.id === "selesai"
-                                  ? "proses"
-                                  : col.id === "tunda"
-                                  ? "proses"
-                                  : "perencanaan";
-                              handleMoveStatus(project.id, prev);
-                            }}
-                            className="flex items-center gap-1 text-studio-text-muted hover:text-white"
-                          >
-                            <ArrowLeft className="w-3 h-3" />
-                            <span>Kembali</span>
-                          </button>
-                        ) : (
-                          <div />
-                        )}
+                        {/* Move Column Actions */}
+                        <div className="flex items-center justify-between pt-1 border-t border-studio-border-subtle/50 text-[10px] font-mono">
+                          {col.id !== "perencanaan" ? (
+                            <button
+                              onClick={() => {
+                                const prev =
+                                  col.id === "selesai"
+                                    ? "proses"
+                                    : col.id === "tunda"
+                                    ? "proses"
+                                    : "perencanaan";
+                                handleMoveStatus(project.id, prev);
+                              }}
+                              className="flex items-center gap-1 text-studio-text-muted hover:text-white"
+                            >
+                              <ArrowLeft className="w-3 h-3" />
+                              <span>Kembali</span>
+                            </button>
+                          ) : (
+                            <div />
+                          )}
 
-                        {col.id !== "selesai" && (
-                          <button
-                            onClick={() => {
-                              const next =
-                                col.id === "perencanaan"
-                                  ? "proses"
-                                  : col.id === "proses"
-                                  ? "selesai"
-                                  : "proses";
-                              handleMoveStatus(project.id, next);
-                            }}
-                            className="flex items-center gap-1 text-spectrum-cyan hover:text-white font-bold ml-auto"
-                          >
-                            <span>Maju</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        )}
+                          {col.id !== "selesai" && (
+                            <button
+                              onClick={() => {
+                                const next =
+                                  col.id === "perencanaan"
+                                    ? "proses"
+                                    : col.id === "proses"
+                                    ? "selesai"
+                                    : "proses";
+                                handleMoveStatus(project.id, next);
+                              }}
+                              className="flex items-center gap-1 text-spectrum-cyan hover:text-white font-bold ml-auto"
+                            >
+                              <span>Maju</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -326,7 +463,27 @@ export default function ProjectPage() {
         isOpen={isNewModalOpen}
         onClose={() => setIsNewModalOpen(false)}
       />
+
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        isOpen={!!selectedEditProject}
+        project={selectedEditProject}
+        onClose={() => setSelectedEditProject(null)}
+      />
+
+      {/* Delete Project Modal */}
+      <DeleteProjectModal
+        isOpen={!!selectedDeleteProject}
+        project={selectedDeleteProject}
+        onClose={() => setSelectedDeleteProject(null)}
+      />
+
+      {/* Finish Project Modal */}
+      <FinishProjectModal
+        isOpen={!!selectedFinishProject}
+        project={selectedFinishProject}
+        onClose={() => setSelectedFinishProject(null)}
+      />
     </div>
   );
 }
-

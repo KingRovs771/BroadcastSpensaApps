@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { DIVISI_OPTIONS, PRODUKSI_JENIS_OPTIONS, produksiUploadSchema } from "@/lib/validations/produksi";
-import { ProduksiVideo, DivisiName } from "@/lib/mock/store";
+import { ProduksiVideo, DivisiName, ProjectKanban } from "@/lib/mock/store";
 import { createClient } from "@/lib/supabase/client";
 import { X, Film, AlertCircle, FileText, HelpCircle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,7 +14,7 @@ interface NewProduksiModalProps {
 }
 
 export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
-  const { currentUser, setProduksiList, logAction, refreshData } = useSession();
+  const { currentUser, setProduksiList, setProjectList, allUsers, logAction, refreshData } = useSession();
   const supabase = createClient();
 
   const [judul, setJudul] = useState("");
@@ -106,6 +106,88 @@ export function NewProduksiModal({ isOpen, onClose }: NewProduksiModalProps) {
         inserted?.id || "new",
         `Membuat naskah baru: ${judul} (${divisi})`
       );
+
+      // Otomatis masukkan pengajuan naskah / pertanyaan podcast ke Project Kanban
+      try {
+        const pjId =
+          (currentUser.id && currentUser.id.length === 36)
+            ? currentUser.id
+            : allUsers.find((u) => u.id && u.id.length === 36)?.id || currentUser.id;
+
+        const projectDeskripsi =
+          mode === "script"
+            ? `[Pengajuan Naskah Video - ${jenis.toUpperCase()}]\n${scriptText}`
+            : `[Pengajuan Pertanyaan Podcast]\n${podcastText}`;
+
+        const { data: insertedProject, error: projError } = await supabase
+          .from("project")
+          .insert({
+            nama_project: judul,
+            deskripsi: projectDeskripsi,
+            penanggung_jawab: pjId,
+            tim: uploaderId ? [uploaderId] : [],
+            status: "perencanaan",
+            progress: 10,
+            divisi,
+            jumlah_views: 0,
+            catatan_update: [
+              {
+                tanggal: new Date().toISOString(),
+                catatan: `Otomatis dibuat dari pengajuan ${mode === "script" ? "naskah video" : "pertanyaan podcast"} oleh ${currentUser.nama}`,
+              },
+            ],
+          })
+          .select()
+          .single();
+
+        if (projError) {
+          console.warn("Supabase auto-create project error:", projError);
+          // Fallback lokal jika ada kendala jaringan/RLS
+          const fallbackProj: ProjectKanban = {
+            id: `proj-${Date.now()}`,
+            nama_project: judul,
+            deskripsi: projectDeskripsi,
+            penanggung_jawab: currentUser.id,
+            pj_name: currentUser.nama,
+            tim: [currentUser.id],
+            status: "perencanaan",
+            progress: 10,
+            divisi,
+            jumlah_views: 0,
+            created_at: new Date().toISOString(),
+          };
+          setProjectList((prev) => [fallbackProj, ...prev]);
+        } else if (insertedProject) {
+          const newProj: ProjectKanban = {
+            id: insertedProject.id,
+            nama_project: insertedProject.nama_project,
+            deskripsi: insertedProject.deskripsi || undefined,
+            penanggung_jawab: insertedProject.penanggung_jawab,
+            pj_name: currentUser.nama,
+            tim: insertedProject.tim || [],
+            deadline: insertedProject.deadline || undefined,
+            status: insertedProject.status || "perencanaan",
+            progress: insertedProject.progress || 10,
+            link_video: insertedProject.link_video || undefined,
+            link_audio: insertedProject.link_audio || undefined,
+            link_thumbnail: insertedProject.link_thumbnail || undefined,
+            link_finalisasi: insertedProject.link_finalisasi || undefined,
+            divisi: insertedProject.divisi,
+            jumlah_views: insertedProject.jumlah_views || 0,
+            created_at: insertedProject.created_at,
+          };
+          setProjectList((prev) => [newProj, ...prev.filter((p) => p.id !== insertedProject.id)]);
+
+          logAction(
+            "AUTO_CREATE_PROJECT",
+            "project",
+            insertedProject.id,
+            `Project kanban otomatis dibuat dari pengajuan naskah: ${judul}`
+          );
+        }
+      } catch (projErr) {
+        console.error("Error creating project kanban entry:", projErr);
+      }
 
       try {
         await refreshData();
