@@ -666,18 +666,36 @@ export default function ProfilePage() {
                           : "bg-spectrum-crimson/20 text-spectrum-crimson border border-spectrum-crimson/30"
                       }`}
                     >
-                      {unpaidWeeks.length === 0 ? "LUNAS TUNTAS" : `TUNGGAKAN ${unpaidWeeks.length} PEKAN`}
+                      {unpaidWeeks.length === 0
+                        ? "LUNAS TUNTAS"
+                        : `TUNGGAKAN ${unpaidWeeks.length} ${
+                            kasSettings.periode_type === "bulanan"
+                              ? "BULAN"
+                              : kasSettings.periode_type === "dwimingguan"
+                              ? "PERIODE"
+                              : "PEKAN"
+                          }`}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle text-center">
-                      <span className="text-[10px] font-mono text-studio-text-muted block">Tarif Mingguan</span>
+                      <span className="text-[10px] font-mono text-studio-text-muted block">
+                        {kasSettings.periode_type === "bulanan"
+                          ? "Tarif Bulanan"
+                          : kasSettings.periode_type === "dwimingguan"
+                          ? "Tarif Dwimingguan"
+                          : "Tarif Mingguan"}
+                      </span>
                       <span className="text-xs font-bold font-mono text-white">{formatIDR(nominalTarif)}</span>
                     </div>
                     <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle text-center">
-                      <span className="text-[10px] font-mono text-studio-text-muted block">Pekan Lunas</span>
-                      <span className="text-xs font-bold font-mono text-spectrum-jade">{paidWeeks.length} Pekan</span>
+                      <span className="text-[10px] font-mono text-studio-text-muted block">
+                        {kasSettings.periode_type === "bulanan" ? "Bulan Lunas" : "Pekan Lunas"}
+                      </span>
+                      <span className="text-xs font-bold font-mono text-spectrum-jade">
+                        {paidWeeks.length} {kasSettings.periode_type === "bulanan" ? "Bulan" : "Pekan"}
+                      </span>
                     </div>
                     <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle text-center">
                       <span className="text-[10px] font-mono text-studio-text-muted block">Tunggakan</span>

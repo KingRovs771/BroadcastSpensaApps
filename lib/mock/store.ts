@@ -59,7 +59,7 @@ export interface AbsensiRecord {
 
 export interface KasSettings {
   nominal: number;
-  periode_type: "mingguan" | "dwimingguan";
+  periode_type: "mingguan" | "dwimingguan" | "bulanan";
   effective_from: string;
 }
 

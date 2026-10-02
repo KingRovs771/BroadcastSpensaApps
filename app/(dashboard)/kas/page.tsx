@@ -63,16 +63,25 @@ export default function KasPage() {
 
   const summary = calculateKasSummary(kasPembayaranList);
 
-  // Extract distinct periods
-  const periods = Array.from(
-    new Set(kasPembayaranList.map((p) => p.periode_label))
-  );
+  // Extract distinct periods sorted chronologically by start date
+  const periodMap = new Map<string, string>();
+  kasPembayaranList.forEach((p) => {
+    if (!periodMap.has(p.periode_label)) {
+      periodMap.set(p.periode_label, p.periode_start);
+    }
+  });
+  const periods = Array.from(periodMap.entries())
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([label]) => label);
 
-  // Filter members by query
-  const filteredAnggota = anggotaList.filter((a) =>
-    a.nama_lengkap.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.kelas.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter members by query - Anggota Tetap are primary subjects for Kas
+  const filteredAnggota = anggotaList
+    .filter((a) => a.tipe === "tetap" || a.status === "aktif")
+    .filter(
+      (a) =>
+        a.nama_lengkap.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        a.kelas.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   // Toggle Single Period Payment
   const handleTogglePayment = async (anggotaId: string, periodeLabel: string) => {
@@ -135,16 +144,45 @@ export default function KasPage() {
       "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
     ];
     const monthStr = monthNames[month - 1];
+    const lastDay = new Date(year, month, 0).getDate();
     const nominal = kasSettings.nominal || 2000;
+    const periodeType = kasSettings.periode_type || "mingguan";
 
-    const weeks = [
-      { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-07`, label: `W1 ${monthStr}` },
-      { start: `${year}-${String(month).padStart(2, "0")}-08`, end: `${year}-${String(month).padStart(2, "0")}-14`, label: `W2 ${monthStr}` },
-      { start: `${year}-${String(month).padStart(2, "0")}-15`, end: `${year}-${String(month).padStart(2, "0")}-21`, label: `W3 ${monthStr}` },
-      { start: `${year}-${String(month).padStart(2, "0")}-22`, end: `${year}-${String(month).padStart(2, "0")}-28`, label: `W4 ${monthStr}` },
-    ];
+    let periodsToInsert: Array<{ start: string; end: string; label: string }> = [];
 
-    const activeMembers = anggotaList.filter((a) => a.status === "aktif");
+    if (periodeType === "bulanan") {
+      periodsToInsert = [
+        {
+          start: `${year}-${String(month).padStart(2, "0")}-01`,
+          end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+          label: `Bulan ${monthStr} ${year}`,
+        },
+      ];
+    } else if (periodeType === "dwimingguan") {
+      periodsToInsert = [
+        {
+          start: `${year}-${String(month).padStart(2, "0")}-01`,
+          end: `${year}-${String(month).padStart(2, "0")}-14`,
+          label: `D1 ${monthStr}`,
+        },
+        {
+          start: `${year}-${String(month).padStart(2, "0")}-15`,
+          end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+          label: `D2 ${monthStr}`,
+        },
+      ];
+    } else {
+      // mingguan
+      periodsToInsert = [
+        { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-07`, label: `W1 ${monthStr}` },
+        { start: `${year}-${String(month).padStart(2, "0")}-08`, end: `${year}-${String(month).padStart(2, "0")}-14`, label: `W2 ${monthStr}` },
+        { start: `${year}-${String(month).padStart(2, "0")}-15`, end: `${year}-${String(month).padStart(2, "0")}-21`, label: `W3 ${monthStr}` },
+        { start: `${year}-${String(month).padStart(2, "0")}-22`, end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`, label: `W4 ${monthStr}` },
+      ];
+    }
+
+    const activeTetapMembers = anggotaList.filter((a) => a.tipe === "tetap" && a.status === "aktif");
+    const activeMembers = activeTetapMembers.length > 0 ? activeTetapMembers : anggotaList.filter((a) => a.status === "aktif");
     if (activeMembers.length === 0) {
       alert("Tidak ada anggota berstatus aktif untuk dibuatkan periode kas.");
       setIsGeneratingPeriods(false);
@@ -153,7 +191,7 @@ export default function KasPage() {
 
     const inserts: any[] = [];
     for (const mem of activeMembers) {
-      for (const w of weeks) {
+      for (const w of periodsToInsert) {
         inserts.push({
           anggota_id: mem.id,
           periode_start: w.start,
@@ -181,7 +219,7 @@ export default function KasPage() {
       logAction(
         "INIT_KAS_PERIODS",
         "kas_pembayaran",
-        `Inisialisasi 4 periode kas ${monthStr} ${year}`
+        `Inisialisasi ${periodsToInsert.length} periode kas (${periodeType}) ${monthStr} ${year} untuk ${activeMembers.length} Anggota Tetap`
       );
     } catch (err: any) {
       alert(`Terjadi kesalahan: ${err.message || err}`);
@@ -298,22 +336,44 @@ export default function KasPage() {
                   : "bg-spectrum-crimson/20 text-spectrum-crimson border border-spectrum-crimson/30"
               }`}
             >
-              {myUnpaidWeeks.length === 0 ? "✓ LUNAS TUNTAS" : `TUNGGAKAN: ${myUnpaidWeeks.length} PEKAN`}
+              {myUnpaidWeeks.length === 0
+                ? "✓ LUNAS TUNTAS"
+                : `TUNGGAKAN: ${myUnpaidWeeks.length} ${
+                    kasSettings.periode_type === "bulanan"
+                      ? "BULAN"
+                      : kasSettings.periode_type === "dwimingguan"
+                      ? "PERIODE"
+                      : "PEKAN"
+                  }`}
             </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
-              <span className="text-[10px] font-mono text-studio-text-muted block">Tarif per Minggu</span>
+              <span className="text-[10px] font-mono text-studio-text-muted block">
+                {kasSettings.periode_type === "bulanan"
+                  ? "Tarif per Bulan"
+                  : kasSettings.periode_type === "dwimingguan"
+                  ? "Tarif per 2 Pekan"
+                  : "Tarif per Pekan"}
+              </span>
               <span className="text-sm font-bold font-mono text-white">{formatIDR(nominalTarif)}</span>
             </div>
             <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
-              <span className="text-[10px] font-mono text-studio-text-muted block">Minggu Lunas</span>
-              <span className="text-sm font-bold font-mono text-spectrum-jade">{myPaidWeeks.length} Minggu</span>
+              <span className="text-[10px] font-mono text-studio-text-muted block">
+                {kasSettings.periode_type === "bulanan" ? "Bulan Lunas" : "Pekan Lunas"}
+              </span>
+              <span className="text-sm font-bold font-mono text-spectrum-jade">
+                {myPaidWeeks.length} {kasSettings.periode_type === "bulanan" ? "Bulan" : "Pekan"}
+              </span>
             </div>
             <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
-              <span className="text-[10px] font-mono text-studio-text-muted block">Minggu Tertunggak</span>
-              <span className="text-sm font-bold font-mono text-spectrum-crimson">{myUnpaidWeeks.length} Minggu</span>
+              <span className="text-[10px] font-mono text-studio-text-muted block">
+                {kasSettings.periode_type === "bulanan" ? "Bulan Tertunggak" : "Pekan Tertunggak"}
+              </span>
+              <span className="text-sm font-bold font-mono text-spectrum-crimson">
+                {myUnpaidWeeks.length} {kasSettings.periode_type === "bulanan" ? "Bulan" : "Pekan"}
+              </span>
             </div>
             <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
               <span className="text-[10px] font-mono text-studio-text-muted block">Total Nominal Tunggakan</span>
