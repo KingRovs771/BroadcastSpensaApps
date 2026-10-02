@@ -44,6 +44,22 @@ export default function KasPage() {
     currentUser.role === "bendahara" || currentUser.role === "administrator";
   const isKetuaOrAdmin =
     currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
+  const isAnggota = currentUser.role === "anggota";
+
+  const linkedAnggota = anggotaList.find(
+    (a) =>
+      a.user_id === currentUser.id ||
+      a.nama_lengkap.toLowerCase() === currentUser.nama.toLowerCase() ||
+      (currentUser.email && a.nis && currentUser.email.startsWith(a.nis))
+  );
+
+  const memberKasList = linkedAnggota
+    ? kasPembayaranList.filter((k) => k.anggota_id === linkedAnggota.id)
+    : [];
+  const myPaidWeeks = memberKasList.filter((k) => k.status === "lunas");
+  const myUnpaidWeeks = memberKasList.filter((k) => k.status === "belum");
+  const nominalTarif = kasSettings.nominal || 2000;
+  const myTunggakanNominal = myUnpaidWeeks.length * nominalTarif;
 
   const summary = calculateKasSummary(kasPembayaranList);
 
@@ -249,6 +265,64 @@ export default function KasPage() {
         </div>
       </div>
 
+      {/* Anggota Mode Banner */}
+      {isAnggota && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-orbital-violet/10 border border-orbital-violet/30 text-xs font-mono text-orbital-magenta">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>Mode Pantau Anggota — Anda dapat melihat status pelunasan kas pribadi Anda dan transparansi kas studio (Mode Hanya Lihat).</span>
+        </div>
+      )}
+
+      {/* Kartu Status Kas Khusus Anggota */}
+      {isAnggota && (
+        <div className="bg-surface-1 border border-spectrum-jade/30 rounded-2xl p-5 shadow-orbital space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-studio-border-subtle flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-spectrum-jade/10 border border-spectrum-jade/20 text-spectrum-jade">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Status Iuran Kas Anda</h3>
+                <p className="text-[11px] font-mono text-studio-text-secondary">
+                  {linkedAnggota
+                    ? `${linkedAnggota.nama_lengkap} (${linkedAnggota.nis} - ${linkedAnggota.kelas})`
+                    : currentUser.nama}
+                </p>
+              </div>
+            </div>
+
+            <span
+              className={`text-xs font-mono font-bold px-3 py-1 rounded-full ${
+                myUnpaidWeeks.length === 0
+                  ? "bg-spectrum-jade/20 text-spectrum-jade border border-spectrum-jade/30"
+                  : "bg-spectrum-crimson/20 text-spectrum-crimson border border-spectrum-crimson/30"
+              }`}
+            >
+              {myUnpaidWeeks.length === 0 ? "✓ LUNAS TUNTAS" : `TUNGGAKAN: ${myUnpaidWeeks.length} PEKAN`}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Tarif per Minggu</span>
+              <span className="text-sm font-bold font-mono text-white">{formatIDR(nominalTarif)}</span>
+            </div>
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Minggu Lunas</span>
+              <span className="text-sm font-bold font-mono text-spectrum-jade">{myPaidWeeks.length} Minggu</span>
+            </div>
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Minggu Tertunggak</span>
+              <span className="text-sm font-bold font-mono text-spectrum-crimson">{myUnpaidWeeks.length} Minggu</span>
+            </div>
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Total Nominal Tunggakan</span>
+              <span className="text-sm font-bold font-mono text-spectrum-crimson">{formatIDR(myTunggakanNominal)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Metric Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 rounded-xl bg-surface-1 border border-studio-border-subtle relative overflow-hidden">
@@ -379,9 +453,16 @@ export default function KasPage() {
                   >
                     <td className="py-3 px-3">
                       <button
-                        onClick={() => setSelectedAnggotaForDrawer(ang)}
+                        onClick={() => {
+                          if (isAnggota) return;
+                          setSelectedAnggotaForDrawer(ang);
+                        }}
                         aria-label={`Buka drawer tunggakan untuk ${ang.nama_lengkap}`}
-                        className="font-bold text-white hover:text-spectrum-cyan flex items-center gap-2 group-hover:underline text-left"
+                        className={`font-bold text-white flex items-center gap-2 text-left ${
+                          isAnggota
+                            ? "cursor-default"
+                            : "hover:text-spectrum-cyan group-hover:underline cursor-pointer"
+                        }`}
                       >
                         <span>{ang.nama_lengkap}</span>
                         {isIndebted && (
@@ -408,8 +489,12 @@ export default function KasPage() {
                       return (
                         <td key={p} className="py-3 px-2 text-center">
                           <button
-                            onClick={() => handleTogglePayment(ang.id, p)}
-                            aria-label={`Tandai bayar ${p} untuk ${ang.nama_lengkap}`}
+                            onClick={() => {
+                              if (!isBendaharaOrAdmin) return;
+                              handleTogglePayment(ang.id, p);
+                            }}
+                            disabled={!isBendaharaOrAdmin}
+                            aria-label={`Status bayar ${p} untuk ${ang.nama_lengkap}`}
                             title={
                               isLunas
                                 ? `Lunas (${
@@ -421,14 +506,18 @@ export default function KasPage() {
                                         })
                                       : "Tercatat"
                                   })`
-                                : `Klik untuk lunasi dengan tanggal ${selectedTanggalBayar}`
+                                : isBendaharaOrAdmin
+                                ? `Klik untuk lunasi dengan tanggal ${selectedTanggalBayar}`
+                                : "Belum bayar (Hanya Bendahara yang dapat mencatat)"
                             }
                             className={`w-7 h-7 mx-auto rounded-md flex items-center justify-center transition-all ${
+                              !isBendaharaOrAdmin ? "cursor-default" : "cursor-pointer"
+                            } ${
                               isLunas
                                 ? "bg-spectrum-jade text-white shadow-jade"
                                 : isIndebted
-                                ? "border-2 border-spectrum-tangerine bg-spectrum-tangerine/10 text-spectrum-tangerine hover:bg-spectrum-tangerine/20"
-                                : "border border-studio-border-medium bg-surface-2 hover:border-spectrum-cyan"
+                                ? "border-2 border-spectrum-tangerine bg-spectrum-tangerine/10 text-spectrum-tangerine"
+                                : "border border-studio-border-medium bg-surface-2"
                             }`}
                           >
                             {isLunas && <Check className="w-4 h-4 stroke-[3]" />}

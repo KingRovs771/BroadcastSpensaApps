@@ -36,6 +36,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "ketua_divisi",
       "div_kreatif",
       "pj",
+      "anggota",
     ],
   },
   {
@@ -46,6 +47,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "pembina",
       "ketua_broadcast",
       "bendahara",
+      "anggota",
     ],
   },
   {
@@ -56,6 +58,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "pembina",
       "ketua_broadcast",
       "sekretaris",
+      "anggota",
     ],
   },
   {
@@ -79,6 +82,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "pembina",
       "ketua_broadcast",
       "sekretaris",
+      "anggota",
     ],
   },
   {
@@ -143,6 +147,21 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     href: "/pengguna",
     badge: "USER",
     allowedRoles: ["administrator", "pembina"],
+  },
+  {
+    label: "Profil Saya",
+    href: "/profile",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "ketua_divisi",
+      "sekretaris",
+      "bendahara",
+      "div_kreatif",
+      "pj",
+      "anggota",
+    ],
   },
   {
     label: "Audit Log Sistem",

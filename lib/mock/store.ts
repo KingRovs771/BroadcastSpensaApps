@@ -29,6 +29,7 @@ export interface UserProfile {
 
 export interface AnggotaRecord {
   id: string;
+  user_id?: string;
   tipe: "tetap" | "ekskul";
   nama_lengkap: string;
   nis: string;

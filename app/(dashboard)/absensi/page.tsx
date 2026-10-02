@@ -37,6 +37,29 @@ export default function AbsensiPage() {
     currentUser.role === "pembina" ||
     currentUser.role === "ketua_broadcast" ||
     currentUser.role === "administrator";
+  const isAnggota = currentUser.role === "anggota";
+
+  const linkedAnggota = anggotaList.find(
+    (a) =>
+      a.user_id === currentUser.id ||
+      a.nama_lengkap.toLowerCase() === currentUser.nama.toLowerCase() ||
+      (currentUser.email && a.nis && currentUser.email.startsWith(a.nis))
+  );
+
+  const memberAbsensiList = linkedAnggota
+    ? absensiList.filter((a) => a.anggota_id === linkedAnggota.id && !a.is_libur)
+    : [];
+  const myHadir = memberAbsensiList.filter((a) => a.status === "masuk").length;
+  const myIzin = memberAbsensiList.filter((a) => a.status === "izin").length;
+  const mySakit = memberAbsensiList.filter((a) => a.status === "sakit").length;
+  const myAlpha = memberAbsensiList.filter((a) => a.status === "alpha").length;
+  const myTotal = memberAbsensiList.length;
+  const myRate = myTotal > 0 ? Math.round((myHadir / myTotal) * 100) : 100;
+
+  // Status for selected date
+  const mySelectedDateStatus = linkedAnggota
+    ? absensiList.find((a) => a.anggota_id === linkedAnggota.id && a.tanggal === selectedDate)?.status
+    : null;
 
   // Check if current date is holiday
   const holidayRecord = absensiList.find(
@@ -259,6 +282,65 @@ export default function AbsensiPage() {
         </div>
       </div>
 
+      {/* Anggota Read-Only Banner */}
+      {isAnggota && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-orbital-violet/10 border border-orbital-violet/30 text-xs font-mono text-orbital-magenta">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span>Mode Pantau Anggota — Anda dapat melihat catatan kehadiran pribadi Anda dan presensi studio (Mode Hanya Lihat).</span>
+        </div>
+      )}
+
+      {/* Kartu Rekap Kehadiran Khusus Anggota */}
+      {isAnggota && (
+        <div className="bg-surface-1 border border-spectrum-cyan/30 rounded-2xl p-5 shadow-orbital space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-studio-border-subtle flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-spectrum-cyan/10 border border-spectrum-cyan/20 text-spectrum-cyan">
+                <CalendarCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Rekap Kehadiran Presensi Anda</h3>
+                <p className="text-[11px] font-mono text-studio-text-secondary">
+                  {linkedAnggota
+                    ? `${linkedAnggota.nama_lengkap} (${linkedAnggota.nis} - ${linkedAnggota.kelas})`
+                    : currentUser.nama}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-spectrum-cyan/20 text-spectrum-cyan border border-spectrum-cyan/30">
+                Kehadiran: {myRate}%
+              </span>
+              {mySelectedDateStatus && (
+                <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-surface-2 text-white border border-studio-border-subtle uppercase">
+                  Sesi Ini: {mySelectedDateStatus}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Hadir / Masuk</span>
+              <span className="text-base font-bold font-mono text-spectrum-jade">{myHadir} Sesi</span>
+            </div>
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Izin</span>
+              <span className="text-base font-bold font-mono text-spectrum-gold">{myIzin} Sesi</span>
+            </div>
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Sakit</span>
+              <span className="text-base font-bold font-mono text-spectrum-cobalt">{mySakit} Sesi</span>
+            </div>
+            <div className="p-3 bg-surface-2 rounded-xl border border-studio-border-subtle">
+              <span className="text-[10px] font-mono text-studio-text-muted block">Alpha</span>
+              <span className="text-base font-bold font-mono text-spectrum-crimson">{myAlpha} Sesi</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Segregated Visual Tabs */}
       <div className="flex items-center gap-3 border-b border-studio-border-subtle">
         <button
@@ -420,14 +502,16 @@ export default function AbsensiPage() {
                             <button
                               key={opt.value}
                               type="button"
-                              disabled={isCurrentDateHoliday}
+                              disabled={isCurrentDateHoliday || !isSekretarisOrAdmin}
                               onClick={() => handleSetStatus(ang.id, opt.value)}
                               aria-label={`Set presensi ${opt.label} untuk ${ang.nama_lengkap}`}
                               className={cn(
                                 "px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold tracking-wider transition-all min-h-[36px]",
                                 isSelected
                                   ? opt.activeClass
-                                  : "text-studio-text-secondary hover:text-white hover:bg-surface-3"
+                                  : "text-studio-text-secondary hover:text-white hover:bg-surface-3",
+                                (!isSekretarisOrAdmin || isCurrentDateHoliday) &&
+                                  "cursor-default pointer-events-none"
                               )}
                             >
                               {opt.label}

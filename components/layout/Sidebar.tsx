@@ -21,6 +21,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   UserCheck,
+  User,
 } from "lucide-react";
 
 import { ALL_NAV_ITEMS, isRouteAllowedForUser } from "@/lib/utils/nav-permissions";
@@ -102,6 +103,11 @@ export function Sidebar() {
       badge: "USER",
     },
     {
+      label: "Profil Saya",
+      href: "/profile",
+      icon: User,
+    },
+    {
       label: "Audit Log Sistem",
       href: "/audit-log",
       icon: ShieldCheck,
@@ -124,18 +130,22 @@ export function Sidebar() {
           <SpectrumLogo size="md" />
         </div>
 
-        {/* User Role Card */}
-        <div className="mx-3 my-3 p-3 bg-surface-2 rounded-xl border border-studio-border-subtle flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-full bg-orbital-violet/20 border border-orbital-violet/40 flex items-center justify-center font-bold text-orbital-magenta text-sm shrink-0">
+        {/* User Role Card - Clickable to /profile */}
+        <Link
+          href="/profile"
+          title="Buka Halaman Profil Saya"
+          className="mx-3 my-3 p-3 bg-surface-2 hover:bg-surface-3 rounded-xl border border-studio-border-subtle hover:border-spectrum-cyan/50 flex items-center gap-3 shrink-0 transition-all group"
+        >
+          <div className="w-9 h-9 rounded-full bg-orbital-violet/20 border border-orbital-violet/40 group-hover:border-spectrum-cyan flex items-center justify-center font-bold text-orbital-magenta group-hover:text-spectrum-cyan text-sm shrink-0 transition-colors">
             {currentUser.nama.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white truncate">{currentUser.nama}</p>
+            <p className="text-xs font-bold text-white group-hover:text-spectrum-cyan truncate transition-colors">{currentUser.nama}</p>
             <p className="text-[10px] font-mono text-studio-text-secondary uppercase truncate">
               {currentUser.role.replace("_", " ")} {currentUser.divisi ? `· ${currentUser.divisi}` : ""}
             </p>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation links */}
         <nav className="px-2 py-1 space-y-0.5 overflow-y-auto flex-1 min-h-0">

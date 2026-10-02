@@ -30,17 +30,21 @@ export default function ProjectPage() {
   const [selectedFinishProject, setSelectedFinishProject] = useState<ProjectKanban | null>(null);
   const [filterDivisi, setFilterDivisi] = useState<string>("all");
 
-  // Seluruh anggota di Divisi Kreatif, serta Ketua Umum, Admin, Pembina, dan Ketua Divisi
+  const isAnggota = currentUser.role === "anggota";
+
+  // Seluruh anggota di Divisi Kreatif (non-anggota biasa), serta Ketua Umum, Admin, Pembina, dan Ketua Divisi
   // berhak menginisiasi project kanban baru
   const canCreateProject =
-    currentUser.divisi === "Kreatif" ||
-    currentUser.role === "div_kreatif" ||
-    currentUser.role === "ketua_broadcast" ||
-    currentUser.role === "administrator" ||
-    currentUser.role === "pembina" ||
-    currentUser.role === "ketua_divisi";
+    !isAnggota &&
+    (currentUser.divisi === "Kreatif" ||
+      currentUser.role === "div_kreatif" ||
+      currentUser.role === "ketua_broadcast" ||
+      currentUser.role === "administrator" ||
+      currentUser.role === "pembina" ||
+      currentUser.role === "ketua_divisi");
 
   const canEditProject = (project: ProjectKanban) => {
+    if (isAnggota) return false;
     return (
       currentUser.role === "administrator" ||
       currentUser.role === "pembina" ||
@@ -54,6 +58,7 @@ export default function ProjectPage() {
   };
 
   const canDeleteProject = (project: ProjectKanban) => {
+    if (isAnggota) return false;
     return (
       currentUser.role === "administrator" ||
       currentUser.role === "pembina" ||
@@ -64,6 +69,7 @@ export default function ProjectPage() {
   };
 
   const canFinishProject = (project: ProjectKanban) => {
+    if (isAnggota) return false;
     return (
       currentUser.role === "administrator" ||
       currentUser.role === "pembina" ||
@@ -203,6 +209,14 @@ export default function ProjectPage() {
         </div>
       </div>
 
+      {/* Anggota Read-Only Banner */}
+      {isAnggota && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-orbital-violet/10 border border-orbital-violet/30 text-xs font-mono text-orbital-magenta">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span>Mode Pantau Anggota — Anda dapat melihat progres dan tautan project kanban studio secara transparan (Mode Hanya Lihat).</span>
+        </div>
+      )}
+
       {/* 4-Column High Speed Kanban Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {columns.map((col) => {
@@ -299,17 +313,26 @@ export default function ProjectPage() {
                             <span>Progres Teknis</span>
                             <span className="font-bold text-white">{project.progress}%</span>
                           </div>
-                          <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            value={project.progress}
-                            onChange={(e) =>
-                              handleProgressChange(project.id, Number(e.target.value))
-                            }
-                            aria-label={`Slider progres untuk ${project.nama_project}`}
-                            className="w-full h-1.5 bg-surface-1 rounded-lg appearance-none cursor-pointer accent-spectrum-cyan"
-                          />
+                          {isAnggota ? (
+                            <div className="w-full h-1.5 bg-surface-1 rounded-lg overflow-hidden">
+                              <div
+                                className="h-full bg-spectrum-cyan rounded-lg transition-all"
+                                style={{ width: `${project.progress}%` }}
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              value={project.progress}
+                              onChange={(e) =>
+                                handleProgressChange(project.id, Number(e.target.value))
+                              }
+                              aria-label={`Slider progres untuk ${project.nama_project}`}
+                              className="w-full h-1.5 bg-surface-1 rounded-lg appearance-none cursor-pointer accent-spectrum-cyan"
+                            />
+                          )}
                         </div>
 
                         {/* PJ & Links Pill */}
@@ -408,46 +431,48 @@ export default function ProjectPage() {
                           </div>
                         )}
 
-                        {/* Move Column Actions */}
-                        <div className="flex items-center justify-between pt-1 border-t border-studio-border-subtle/50 text-[10px] font-mono">
-                          {col.id !== "perencanaan" ? (
-                            <button
-                              onClick={() => {
-                                const prev =
-                                  col.id === "selesai"
-                                    ? "proses"
-                                    : col.id === "tunda"
-                                    ? "proses"
-                                    : "perencanaan";
-                                handleMoveStatus(project.id, prev);
-                              }}
-                              className="flex items-center gap-1 text-studio-text-muted hover:text-white"
-                            >
-                              <ArrowLeft className="w-3 h-3" />
-                              <span>Kembali</span>
-                            </button>
-                          ) : (
-                            <div />
-                          )}
+                        {/* Move Column Actions (Hanya untuk peran pengelola) */}
+                        {!isAnggota && (
+                          <div className="flex items-center justify-between pt-1 border-t border-studio-border-subtle/50 text-[10px] font-mono">
+                            {col.id !== "perencanaan" ? (
+                              <button
+                                onClick={() => {
+                                  const prev =
+                                    col.id === "selesai"
+                                      ? "proses"
+                                      : col.id === "tunda"
+                                      ? "proses"
+                                      : "perencanaan";
+                                  handleMoveStatus(project.id, prev);
+                                }}
+                                className="flex items-center gap-1 text-studio-text-muted hover:text-white"
+                              >
+                                <ArrowLeft className="w-3 h-3" />
+                                <span>Kembali</span>
+                              </button>
+                            ) : (
+                              <div />
+                            )}
 
-                          {col.id !== "selesai" && (
-                            <button
-                              onClick={() => {
-                                const next =
-                                  col.id === "perencanaan"
-                                    ? "proses"
-                                    : col.id === "proses"
-                                    ? "selesai"
-                                    : "proses";
-                                handleMoveStatus(project.id, next);
-                              }}
-                              className="flex items-center gap-1 text-spectrum-cyan hover:text-white font-bold ml-auto"
-                            >
-                              <span>Maju</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
+                            {col.id !== "selesai" && (
+                              <button
+                                onClick={() => {
+                                  const next =
+                                    col.id === "perencanaan"
+                                      ? "proses"
+                                      : col.id === "proses"
+                                      ? "selesai"
+                                      : "proses";
+                                  handleMoveStatus(project.id, next);
+                                }}
+                                className="flex items-center gap-1 text-spectrum-cyan hover:text-white font-bold ml-auto"
+                              >
+                                <span>Maju</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })

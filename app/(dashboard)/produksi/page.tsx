@@ -16,6 +16,10 @@ import {
   UserPlus,
   Layers,
   Sparkles,
+  FileText,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export default function ProduksiPage() {
@@ -25,16 +29,20 @@ export default function ProduksiPage() {
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "in_production" | "done">("all");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [selectedForLinks, setSelectedForLinks] = useState<ProduksiVideo | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Seluruh anggota di Divisi Kreatif, serta Admin, Pembina, Ketua Umum, dan Ketua Divisi
+  const isAnggota = currentUser.role === "anggota";
+
+  // Seluruh anggota di Divisi Kreatif (non-anggota biasa), serta Admin, Pembina, Ketua Umum, dan Ketua Divisi
   // berhak menambahkan naskah skrip dan pertanyaan konsep video
   const canSubmitProduksi =
-    currentUser.divisi === "Kreatif" ||
-    currentUser.role === "div_kreatif" ||
-    currentUser.role === "administrator" ||
-    currentUser.role === "pembina" ||
-    currentUser.role === "ketua_broadcast" ||
-    currentUser.role === "ketua_divisi";
+    !isAnggota &&
+    (currentUser.divisi === "Kreatif" ||
+      currentUser.role === "div_kreatif" ||
+      currentUser.role === "administrator" ||
+      currentUser.role === "pembina" ||
+      currentUser.role === "ketua_broadcast" ||
+      currentUser.role === "ketua_divisi");
 
   const isKetuaBroadcast =
     currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
@@ -214,6 +222,14 @@ export default function ProduksiPage() {
         )}
       </div>
 
+      {/* Anggota Read-Only Banner */}
+      {isAnggota && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-orbital-violet/10 border border-orbital-violet/30 text-xs font-mono text-orbital-magenta">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span>Mode Pantau Anggota — Anda dapat melihat daftar naskah dan pertanyaan podcast yang diajukan ke studio (Mode Hanya Lihat).</span>
+        </div>
+      )}
+
       {/* Metric Counters Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="p-4 rounded-xl bg-surface-1 border border-studio-border-subtle">
@@ -357,6 +373,58 @@ export default function ProduksiPage() {
                     </span>
                   </div>
                   <h4 className="text-sm font-bold text-white">{prod.judul}</h4>
+
+                  {/* Toggle View Script / Podcast Concept */}
+                  {(prod.script_text || prod.pertanyaan_podcast) && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(expandedId === prod.id ? null : prod.id)}
+                        className="flex items-center gap-1 text-[11px] font-mono text-spectrum-cyan hover:underline transition-colors my-1"
+                      >
+                        {prod.script_text ? (
+                          <FileText className="w-3.5 h-3.5 text-spectrum-cyan" />
+                        ) : (
+                          <HelpCircle className="w-3.5 h-3.5 text-spectrum-lime" />
+                        )}
+                        <span>
+                          {expandedId === prod.id
+                            ? "Tutup Naskah / Pertanyaan"
+                            : "Lihat Naskah / Pertanyaan Diajukan"}
+                        </span>
+                        {expandedId === prod.id ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )}
+                      </button>
+
+                      {expandedId === prod.id && (
+                        <div className="p-3 bg-surface-1 rounded-xl border border-studio-border-subtle text-xs space-y-2 my-2 max-w-xl">
+                          {prod.script_text && (
+                            <div>
+                              <span className="text-[10px] font-mono font-bold text-spectrum-cyan block mb-1">
+                                NASKAH SKRIP VIDEO:
+                              </span>
+                              <p className="text-studio-text-secondary whitespace-pre-wrap font-mono text-[11px] leading-relaxed max-h-48 overflow-y-auto pr-1">
+                                {prod.script_text}
+                              </p>
+                            </div>
+                          )}
+                          {prod.pertanyaan_podcast && (
+                            <div>
+                              <span className="text-[10px] font-mono font-bold text-spectrum-lime block mb-1">
+                                PERTANYAAN / KONSEP PODCAST:
+                              </span>
+                              <p className="text-studio-text-secondary whitespace-pre-wrap font-mono text-[11px] leading-relaxed max-h-48 overflow-y-auto pr-1">
+                                {prod.pertanyaan_podcast}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-3 text-xs text-studio-text-secondary">
                     <span>
                       PJ:{" "}

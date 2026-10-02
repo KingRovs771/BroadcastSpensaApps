@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "../shared/SessionContext";
 import { getAcademicSemester } from "@/lib/utils/semester";
@@ -80,13 +81,17 @@ export function Topbar() {
           )}
         </button>
 
-        {/* Current user pill */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-studio-border-subtle">
-          <div className="w-6 h-6 rounded-full bg-orbital-violet/30 border border-orbital-violet/40 flex items-center justify-center">
-            <User className="w-3 h-3 text-orbital-magenta" />
+        {/* Current user pill - Link to /profile */}
+        <Link
+          href="/profile"
+          title="Buka Profil Saya"
+          className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 border border-studio-border-subtle hover:border-spectrum-cyan/50 transition-all group"
+        >
+          <div className="w-6 h-6 rounded-full bg-orbital-violet/30 border border-orbital-violet/40 group-hover:border-spectrum-cyan flex items-center justify-center transition-colors">
+            <User className="w-3 h-3 text-orbital-magenta group-hover:text-spectrum-cyan transition-colors" />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-[11px] font-semibold text-white truncate max-w-[120px]">
+            <span className="text-[11px] font-semibold text-white group-hover:text-spectrum-cyan transition-colors truncate max-w-[120px]">
               {currentUser.nama}
             </span>
             <span className="text-[9px] font-mono text-studio-text-muted uppercase tracking-wider">
@@ -94,7 +99,7 @@ export function Topbar() {
               {currentUser.divisi ? ` · ${currentUser.divisi}` : ""}
             </span>
           </div>
-        </div>
+        </Link>
 
         {/* Logout */}
         <button

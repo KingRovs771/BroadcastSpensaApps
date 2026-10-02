@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   X,
   Printer,
+  Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -31,6 +32,7 @@ export default function NotulenPage() {
   const [keputusan, setKeputusan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isAnggota = currentUser.role === "anggota";
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
   const isKetuaOrAdmin =
@@ -144,6 +146,16 @@ export default function NotulenPage() {
           </button>
         )}
       </div>
+
+      {/* Anggota Read-Only Banner */}
+      {isAnggota && (
+        <div className="flex items-center gap-3 p-3.5 bg-spectrum-cyan/10 border border-spectrum-cyan/30 rounded-2xl">
+          <Info className="w-4 h-4 text-spectrum-cyan flex-shrink-0" />
+          <p className="text-xs text-studio-text-secondary">
+            <strong className="text-spectrum-cyan">Mode Pantau Anggota (Hanya Lihat):</strong> Anda memiliki hak akses penuh untuk membaca seluruh agenda rapat, uraian pembahasan, serta keputusan musyawarah yang telah disepakati pengurus.
+          </p>
+        </div>
+      )}
 
       {/* List of Notulen */}
       <div className="space-y-4">
