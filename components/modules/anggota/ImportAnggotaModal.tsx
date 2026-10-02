@@ -52,10 +52,8 @@ export function ImportAnggotaModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showInvalidOnly, setShowInvalidOnly] = useState(false);
 
-  if (!isOpen) return null;
-
-  // ── Handler file pick ──────────────────────────────────────────────────────
-  const processFile = async (file: File) => {
+  // ── Semua hook HARUS di atas early return (Rules of Hooks) ────────────────
+  const processFile = useCallback(async (file: File) => {
     if (!file.name.endsWith(".csv")) {
       setErrorMsg("Hanya file .CSV yang didukung.");
       return;
@@ -66,20 +64,23 @@ export function ImportAnggotaModal({
     const result = parseAnggotaFromCSV(text);
     setParseResult(result);
     setStep("preview");
-  };
+  }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
-  };
+  }, [processFile]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [processFile]);
+
+  // ── Early return SETELAH semua hook ────────────────────────────────────────
+  if (!isOpen) return null;
+
 
   // ── Import ke Supabase ─────────────────────────────────────────────────────
   const handleImport = async () => {
