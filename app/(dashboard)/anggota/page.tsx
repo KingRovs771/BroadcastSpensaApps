@@ -5,6 +5,7 @@ import { useSession } from "@/components/shared/SessionContext";
 import { AnggotaRecord, DivisiName, UserProfile, UserRole } from "@/lib/mock/store";
 import { DIVISI_OPTIONS } from "@/lib/validations/produksi";
 import { createClient } from "@/lib/supabase/client";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import {
   TambahPembinaModal,
   TambahPembinaInitialData,
@@ -311,10 +312,52 @@ export default function AnggotaPage() {
             }),
           });
 
+          let createdUserId = "";
           const createData = await createRes.json();
           if (createRes.ok && createData.user?.id) {
+            createdUserId = createData.user.id;
+          } else if (createData.fallbackToClient || !createRes.ok) {
+            // Fallback: Gunakan isolated Supabase Auth Client
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ovqhmfyoexuwhmkdunpz.supabase.co";
+            const supabaseAnonKey =
+              process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+              "";
+
+            const isolatedClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+              auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+            });
+
+            const { data: authData, error: authError } = await isolatedClient.auth.signUp({
+              email: emailAkun.trim().toLowerCase(),
+              password: passwordAkun,
+              options: {
+                data: {
+                  nama: namaLengkap.trim(),
+                  role: roleAkun,
+                  nip: nis.trim() || undefined,
+                  jabatan: jabatan.trim(),
+                  no_hp: noHp.trim() || undefined,
+                  divisi: (roleAkun === "div_kreatif" || roleAkun === "ketua_divisi" || roleAkun === "pj") ? divisi : undefined,
+                },
+              },
+            });
+
+            if (!authError && authData?.user?.id) {
+              createdUserId = authData.user.id;
+              await supabase.from("profiles").upsert({
+                id: createdUserId,
+                nama: namaLengkap.trim(),
+                email: emailAkun.trim().toLowerCase(),
+                role: roleAkun,
+                divisi: (roleAkun === "div_kreatif" || roleAkun === "ketua_divisi" || roleAkun === "pj") ? divisi : null,
+              }, { onConflict: "id" });
+            }
+          }
+
+          if (createdUserId) {
             const newProfile: UserProfile = {
-              id: createData.user.id,
+              id: createdUserId,
               nama: namaLengkap.trim(),
               email: emailAkun.trim().toLowerCase(),
               role: roleAkun,
@@ -324,10 +367,10 @@ export default function AnggotaPage() {
             logAction(
               "CREATE_USER_FOR_ANGGOTA",
               "users",
-              createData.user.id,
+              createdUserId,
               `Membuat akun pengguna aplikasi untuk siswa: ${namaLengkap.trim()} (${emailAkun.trim().toLowerCase()}) - Role: ${roleAkun}`
             );
-          } else if (createData.error) {
+          } else if (createData.error && !createData.fallbackToClient) {
             console.warn("Notice creating user account:", createData.error);
           }
         } catch (authErr) {

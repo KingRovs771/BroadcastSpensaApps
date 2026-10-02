@@ -168,16 +168,16 @@ export function TambahPembinaModal({
 
         const createData = await createRes.json();
 
-        if (!createRes.ok && createData.error && createRes.status !== 409) {
+        if (createRes.ok && createData.user?.id && !createData.user.id.startsWith("usr-")) {
+          userId = createData.user.id;
+        } else if (createData.fallbackToClient) {
+          // Service role key belum dikonfigurasi di server -> lanjut ke isolatedClient fallback secara otomatis
+          console.warn("Service role key belum tersedia di server, menggunakan fallback client signup");
+        } else if (!createRes.ok && createData.error && createRes.status !== 409) {
           // Hanya tampilkan error jika bukan kasus recovery email yang sudah ada
-          // (API akan handle recovery otomatis untuk kasus email sudah ada)
           setErrorMsg(createData.error || "Gagal membuat akun pengguna.");
           setIsLoading(false);
           return;
-        }
-
-        if (createRes.ok && createData.user?.id && !createData.user.id.startsWith("usr-")) {
-          userId = createData.user.id;
         }
       } catch (err) {
         console.warn("API create user exception, continuing with client fallback:", err);
