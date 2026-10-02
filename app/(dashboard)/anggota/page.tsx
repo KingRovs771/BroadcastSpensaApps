@@ -17,6 +17,7 @@ import { EditUserModal } from "@/components/modules/users/EditUserModal";
 import { HapusUserModal } from "@/components/modules/users/HapusUserModal";
 import { ResetPasswordModal } from "@/components/modules/users/ResetPasswordModal";
 import { exportAnggotaToCSV } from "@/lib/utils/excel";
+import { ImportAnggotaModal } from "@/components/modules/anggota/ImportAnggotaModal";
 import {
   Users,
   Plus,
@@ -31,6 +32,7 @@ import {
   UserCheck,
   CheckCircle,
   Download,
+  Upload,
   Eye,
   EyeOff,
   Edit,
@@ -77,6 +79,7 @@ export default function AnggotaPage() {
   const [kelasFilter, setKelasFilter] = useState<"all" | "VII" | "VIII" | "IX">("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPembinaModalOpen, setIsPembinaModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [userModalInitialData, setUserModalInitialData] = useState<TambahPembinaInitialData | null>(null);
 
   // Form states untuk Anggota
@@ -375,6 +378,18 @@ export default function AnggotaPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+          {/* Tombol Import CSV */}
+          {(activeTab === "ekskul" || activeTab === "tetap") && canCreateAnggota && (
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              title="Import data anggota dari file CSV"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-slate-200 hover:text-white text-xs font-semibold border border-studio-border-subtle transition-all min-h-[42px]"
+            >
+              <Upload className="w-4 h-4 text-spectrum-cyan shrink-0" />
+              <span>Import <span className="hidden xs:inline sm:inline">CSV</span></span>
+            </button>
+          )}
+
           {/* Tombol Export Excel / CSV sesuai database */}
           {(activeTab === "ekskul" || activeTab === "tetap") && (
             <button
@@ -1261,6 +1276,16 @@ export default function AnggotaPage() {
         isOpen={!!selectedResetUser}
         onClose={() => setSelectedResetUser(null)}
         user={selectedResetUser}
+      />
+
+      {/* ── Modal Import CSV Anggota ──────────────────────────────────────────── */}
+      <ImportAnggotaModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        defaultTipe={activeTab === "ekskul" ? "ekskul" : "tetap"}
+        onImported={(newRecords) => {
+          setAnggotaList((prev) => [...prev, ...newRecords]);
+        }}
       />
     </div>
   );
