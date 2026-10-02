@@ -19,7 +19,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function NotulenPage() {
-  const { currentUser, notulenList, allUsers, refreshData, logAction, supabase } = useSession();
+  const { currentUser, notulenList, allUsers, anggotaList, refreshData, logAction, supabase } = useSession();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNotulenForView, setSelectedNotulenForView] = useState<NotulenItem | null>(null);
@@ -47,6 +47,51 @@ export default function NotulenPage() {
   const visibleNotulenList = isPrivilegedNotulen
     ? notulenList
     : notulenList.filter((n) => n.status === "final");
+
+  // Helper untuk menampilkan nama lengkap resmi (bukan UID)
+  const getAuthorName = (idOrUid?: string | null) => {
+    if (!idOrUid) return "Sekretaris Broadcast Spensa";
+    const u = allUsers.find(
+      (user) => user.id === idOrUid || user.email?.toLowerCase() === idOrUid.toLowerCase()
+    );
+    if (u && u.nama) return u.nama;
+
+    const a = anggotaList.find(
+      (ang) => ang.id === idOrUid || ang.user_id === idOrUid || ang.nama_lengkap.toLowerCase() === idOrUid.toLowerCase()
+    );
+    if (a && a.nama_lengkap) return a.nama_lengkap;
+
+    if (currentUser.id === idOrUid && currentUser.nama) return currentUser.nama;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUid);
+    if (isUuid) {
+      return "Sekretaris Broadcast Spensa";
+    }
+
+    return idOrUid;
+  };
+
+  const getApproverName = (idOrUid?: string | null) => {
+    if (!idOrUid) return "Menunggu Pengesahan";
+    const u = allUsers.find(
+      (user) => user.id === idOrUid || user.email?.toLowerCase() === idOrUid.toLowerCase()
+    );
+    if (u && u.nama) return u.nama;
+
+    const a = anggotaList.find(
+      (ang) => ang.id === idOrUid || ang.user_id === idOrUid || ang.nama_lengkap.toLowerCase() === idOrUid.toLowerCase()
+    );
+    if (a && a.nama_lengkap) return a.nama_lengkap;
+
+    if (currentUser.id === idOrUid && currentUser.nama) return currentUser.nama;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUid);
+    if (isUuid) {
+      return "Ketua Broadcast Spensa";
+    }
+
+    return idOrUid;
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,10 +295,10 @@ export default function NotulenPage() {
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-studio-border-subtle text-[11px] font-mono text-studio-text-muted">
-                  <span>Dibuat: {allUsers.find((u) => u.id === notulen.dibuat_oleh)?.nama || notulen.dibuat_oleh || "Sekretaris"}</span>
+                  <span>Dibuat: {getAuthorName(notulen.dibuat_oleh)}</span>
                   {notulen.disetujui_oleh && (
                     <span className="text-spectrum-jade font-semibold">
-                      ✓ Disahkan: {allUsers.find((u) => u.id === notulen.disetujui_oleh)?.nama || notulen.disetujui_oleh || "Ketua Broadcast"}
+                      ✓ Disahkan: {getApproverName(notulen.disetujui_oleh)}
                     </span>
                   )}
                 </div>
@@ -491,15 +536,48 @@ export default function NotulenPage() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-300 grid grid-cols-2 text-center text-xs">
-                  <div>
+                  <div className="flex flex-col items-center">
                     <p className="text-slate-600 text-[10px]">Dicatat Oleh:</p>
-                    <p className="mt-8 font-bold text-slate-900">{selectedNotulenForView.dibuat_oleh}</p>
-                    <p className="text-[10px] text-slate-600">Sekretaris Broadcast</p>
+                    <div className="h-16 flex items-center justify-center my-1">
+                      {allUsers.find((u) => u.id === selectedNotulenForView.dibuat_oleh)?.signature_url ? (
+                        <img
+                          src={allUsers.find((u) => u.id === selectedNotulenForView.dibuat_oleh)?.signature_url}
+                          alt="Tanda Tangan Pencatat"
+                          className="h-14 max-w-[130px] object-contain"
+                        />
+                      ) : (
+                        <span className="font-serif italic text-slate-400 text-xs">
+                          (Tertanda Digital)
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-bold text-slate-900 underline">
+                      {getAuthorName(selectedNotulenForView.dibuat_oleh)}
+                    </p>
+                    <p className="text-[10px] text-slate-600">Sekretaris Broadcast Spensa</p>
                   </div>
-                  <div>
+
+                  <div className="flex flex-col items-center">
                     <p className="text-slate-600 text-[10px]">Disahkan Oleh:</p>
-                    <p className="mt-8 font-bold text-slate-900">
-                      {selectedNotulenForView.disetujui_oleh || "Menunggu Pengesahan"}
+                    <div className="h-16 flex items-center justify-center my-1">
+                      {allUsers.find((u) => u.id === selectedNotulenForView.disetujui_oleh)?.signature_url ? (
+                        <img
+                          src={allUsers.find((u) => u.id === selectedNotulenForView.disetujui_oleh)?.signature_url}
+                          alt="Tanda Tangan Pengesahan"
+                          className="h-14 max-w-[130px] object-contain"
+                        />
+                      ) : selectedNotulenForView.disetujui_oleh ? (
+                        <span className="font-serif italic text-emerald-600 font-semibold text-xs">
+                          (Disahkan Digital)
+                        </span>
+                      ) : (
+                        <span className="font-serif italic text-slate-400 text-xs">
+                          (Menunggu Pengesahan)
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-bold text-slate-900 underline">
+                      {getApproverName(selectedNotulenForView.disetujui_oleh)}
                     </p>
                     <p className="text-[10px] text-slate-600">Ketua Broadcast Spensa</p>
                   </div>
