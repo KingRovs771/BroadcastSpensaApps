@@ -454,6 +454,9 @@ export function TambahPembinaModal({
                       } else if (newRole === "ketua_broadcast") {
                         setJabatanSekolah("Ketua Umum Broadcast");
                         setDaftarSebagaiAnggotaTetap(true);
+                      } else if (newRole === "ketua_divisi") {
+                        setJabatanSekolah("Ketua Divisi");
+                        setDaftarSebagaiAnggotaTetap(true);
                       } else if (newRole === "sekretaris") {
                         setJabatanSekolah("Sekretaris");
                         setDaftarSebagaiAnggotaTetap(true);

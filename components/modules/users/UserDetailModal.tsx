@@ -32,6 +32,7 @@ interface UserDetailModalProps {
   onResetPassword?: (user: UserProfile) => void;
   onEdit?: (user: UserProfile) => void;
   onDelete?: (user: UserProfile) => void;
+  onJadikanAnggota?: (user: UserProfile) => void;
 }
 
 export function UserDetailModal({
@@ -41,6 +42,7 @@ export function UserDetailModal({
   onResetPassword,
   onEdit,
   onDelete,
+  onJadikanAnggota,
 }: UserDetailModalProps) {
   const { currentUser, anggotaList, absensiList, kasPembayaranList } = useSession();
   const [isCopied, setIsCopied] = useState(false);
@@ -352,11 +354,29 @@ export function UserDetailModal({
               )}
             </div>
           ) : (
-            <div className="p-3.5 rounded-xl bg-surface-1 border border-studio-border-subtle flex items-center gap-3 text-xs text-slate-400">
-              <Award className="w-4 h-4 text-violet-400 shrink-0" />
-              <span>
-                Akun ini bertindak sebagai akun struktural/pembina dan tidak ditautkan ke catatan absensi siswa reguler.
-              </span>
+            <div className="p-4 rounded-xl bg-surface-1 border border-studio-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3 text-slate-300">
+                <GraduationCap className="w-5 h-5 text-spectrum-amber shrink-0" />
+                <div>
+                  <p className="font-semibold text-white">Belum Terdaftar di Buku Induk Anggota</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Akun ini belum memiliki rekaman data anggota (kelas, NIS, absensi, & kas).
+                  </p>
+                </div>
+              </div>
+              {onJadikanAnggota && user.role !== "pembina" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onJadikanAnggota(user);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-cyan shrink-0 min-h-[38px]"
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Jadikan Anggota Tetap</span>
+                </button>
+              )}
             </div>
           )}
 

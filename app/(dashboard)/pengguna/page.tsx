@@ -8,6 +8,7 @@ import { UserDetailModal } from "@/components/modules/users/UserDetailModal";
 import { EditUserModal } from "@/components/modules/users/EditUserModal";
 import { HapusUserModal } from "@/components/modules/users/HapusUserModal";
 import { ResetPasswordModal } from "@/components/modules/users/ResetPasswordModal";
+import { JadikanAnggotaModal } from "@/components/modules/pengguna/JadikanAnggotaModal";
 import {
   Users,
   Plus,
@@ -24,10 +25,12 @@ import {
   CheckCircle2,
   X,
   Lock,
+  GraduationCap,
+  UserCheck,
 } from "lucide-react";
 
 export default function PenggunaPage() {
-  const { currentUser, allUsers } = useSession();
+  const { currentUser, allUsers, anggotaList } = useSession();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -38,6 +41,7 @@ export default function PenggunaPage() {
   const [selectedEditUser, setSelectedEditUser] = useState<UserProfile | null>(null);
   const [selectedDeleteUser, setSelectedDeleteUser] = useState<UserProfile | null>(null);
   const [selectedResetUser, setSelectedResetUser] = useState<UserProfile | null>(null);
+  const [selectedJadikanUser, setSelectedJadikanUser] = useState<UserProfile | null>(null);
 
   const isPrivileged =
     currentUser.role === "administrator" || currentUser.role === "pembina";
@@ -282,6 +286,10 @@ export default function PenggunaPage() {
             {filteredUsers.map((user) => {
               const badge = getRoleBadge(user.role);
               const isSelf = user.id === currentUser.id;
+              const linkedAnggota = (anggotaList || []).find(
+                (a) => a.id === user.id || a.nama_lengkap.trim().toLowerCase() === user.nama.trim().toLowerCase()
+              );
+
               return (
                 <div
                   key={user.id}
@@ -337,11 +345,38 @@ export default function PenggunaPage() {
                         <span className="text-spectrum-cyan font-mono text-[11px]">{user.divisi}</span>
                       </div>
                     )}
+                    {/* Status Hubungan Buku Induk Anggota */}
+                    <div className="flex justify-between items-center pt-1 border-t border-studio-border-subtle">
+                      <span className="text-slate-400 text-[10px]">Buku Induk:</span>
+                      {linkedAnggota ? (
+                        <span className="font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/25 text-[10px] font-bold flex items-center gap-1">
+                          <GraduationCap className="w-3 h-3 text-cyan-400" />
+                          Tetap ({linkedAnggota.kelas})
+                        </span>
+                      ) : (
+                        <span className="font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-[10px] font-semibold">
+                          {user.role === "pembina" ? "Non-Siswa" : "Belum Terdaftar"}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex justify-between items-center pt-1 border-t border-studio-border-subtle">
                       <span className="text-slate-400 text-[10px]">User ID:</span>
                       <span className="text-slate-400 font-mono text-[10px] truncate max-w-[150px]">{user.id}</span>
                     </div>
                   </div>
+
+                  {/* Tombol Aksi Cepat: Jadikan Anggota Tetap (jika belum terdaftar dan bukan pembina) */}
+                  {!linkedAnggota && user.role !== "pembina" && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedJadikanUser(user)}
+                      title="Daftarkan akun pengguna ini ke Buku Induk Anggota Tetap"
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600/30 hover:to-blue-600/30 text-cyan-300 hover:text-white border border-cyan-500/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm min-h-[38px]"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Jadikan Anggota Tetap</span>
+                    </button>
+                  )}
 
                   {/* Baris Tombol Aksi CRUD Lengkap */}
                   <div className="flex items-center gap-2 pt-2 border-t border-studio-border-subtle">
@@ -419,6 +454,10 @@ export default function PenggunaPage() {
           setSelectedDetailUser(null);
           setSelectedDeleteUser(u);
         }}
+        onJadikanAnggota={(u) => {
+          setSelectedDetailUser(null);
+          setSelectedJadikanUser(u);
+        }}
       />
 
       {/* 3. Update / Edit Modal */}
@@ -440,6 +479,13 @@ export default function PenggunaPage() {
         isOpen={!!selectedResetUser}
         onClose={() => setSelectedResetUser(null)}
         user={selectedResetUser}
+      />
+
+      {/* 6. Modal Jadikan Anggota Tetap */}
+      <JadikanAnggotaModal
+        isOpen={!!selectedJadikanUser}
+        onClose={() => setSelectedJadikanUser(null)}
+        user={selectedJadikanUser}
       />
     </div>
   );
