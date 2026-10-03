@@ -159,9 +159,6 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "ketua_divisi",
       "sekretaris",
       "bendahara",
-      "div_kreatif",
-      "pj",
-      "anggota",
     ],
   },
   {

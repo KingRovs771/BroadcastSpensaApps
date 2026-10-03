@@ -17,6 +17,7 @@ import {
   Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { KopSuratSpensa } from "@/components/modules/laporan/KopSuratSpensa";
 
 export default function NotulenPage() {
   const { currentUser, notulenList, allUsers, anggotaList, refreshData, logAction, supabase } = useSession();
@@ -35,8 +36,11 @@ export default function NotulenPage() {
   const isAnggota = currentUser.role === "anggota";
   const isSekretarisOrAdmin =
     currentUser.role === "sekretaris" || currentUser.role === "administrator";
-  const isKetuaOrAdmin =
-    currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
+  // Yang boleh mengesahkan notulen: Ketua Broadcast, Pembina, dan Administrator
+  const canApproveNotulen =
+    currentUser.role === "ketua_broadcast" ||
+    currentUser.role === "pembina" ||
+    currentUser.role === "administrator";
   const isPrivilegedNotulen =
     currentUser.role === "sekretaris" ||
     currentUser.role === "ketua_broadcast" ||
@@ -170,8 +174,8 @@ export default function NotulenPage() {
   };
 
   const handleFinalizeLock = async (notulenId: string) => {
-    if (!isKetuaOrAdmin) {
-      alert("Hanya Ketua Broadcast yang berwenang mengesahkan dan mengunci risalah rapat!");
+    if (!canApproveNotulen) {
+      alert("Hanya Ketua Broadcast, Pembina, atau Administrator yang berwenang mengesahkan dan mengunci risalah rapat!");
       return;
     }
 
@@ -193,11 +197,23 @@ export default function NotulenPage() {
       }
 
       await refreshData();
+      const approverJabatan = roleToJabatan(currentUser.role);
       logAction(
         "FINALIZE_NOTULEN",
         "notulen",
         notulenId,
-        `Ketua Broadcast mengesahkan status FINAL notulen rapat`
+        `${approverJabatan} (${currentUser.nama}) mengesahkan status FINAL notulen rapat`
+      );
+
+      setSelectedNotulenForView((prev) =>
+        prev && prev.id === notulenId
+          ? {
+              ...prev,
+              status: "final",
+              disetujui_oleh: currentUser.id,
+              disetujui_at: new Date().toISOString(),
+            }
+          : prev
       );
     } catch (err: any) {
       alert(`Terjadi kesalahan: ${err.message || err}`);
@@ -278,7 +294,7 @@ export default function NotulenPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {!isFinal && isKetuaOrAdmin && (
+                    {!isFinal && canApproveNotulen && (
                       <button
                         onClick={() => handleFinalizeLock(notulen.id)}
                         aria-label="Kunci dan sahkan notulen"
@@ -523,21 +539,8 @@ export default function NotulenPage() {
 
               {/* Document Body simulating official print format */}
               <div className="printable-document mt-4 p-6 bg-white text-slate-900 rounded-xl space-y-4 font-sans">
-                {/* Kop Surat Mini */}
-                <div className="text-center border-b-2 border-black pb-3">
-                  <h2 className="font-serif font-bold text-sm tracking-wider uppercase">
-                    PEMERINTAH KOTA · DINAS PENDIDIKAN
-                  </h2>
-                  <h1 className="font-serif font-extrabold text-base tracking-widest text-blue-900 uppercase">
-                    SMP NEGERI 1 (SPENSA)
-                  </h1>
-                  <p className="text-[10px] text-slate-600">
-                    EKSTRAKURIKULER BROADCAST & MULTIMEDIA SPENSA
-                  </p>
-                  <p className="text-[9px] text-slate-500 font-mono">
-                    Jl. Veteran No. 1, Kota · broadcast@spensa.sch.id
-                  </p>
-                </div>
+                {/* Kop Surat Resmi Spensa Sragen */}
+                <KopSuratSpensa subJudul="RISALAH MUSYAWARAH & NOTULEN RAPAT" />
 
                 <div className="text-center my-3">
                   <h3 className="font-serif font-bold text-sm uppercase underline">
@@ -612,10 +615,22 @@ export default function NotulenPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex items-center justify-between gap-3">
+                {selectedNotulenForView.status !== "final" && canApproveNotulen ? (
+                  <button
+                    onClick={() => handleFinalizeLock(selectedNotulenForView.id)}
+                    className="px-4 py-2 rounded-xl bg-spectrum-jade hover:bg-emerald-500 text-ink text-xs font-bold flex items-center gap-1.5 transition-colors shadow-jade min-h-[44px]"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Sahkan & Kunci Risalah Ini</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-spectrum-cobalt text-ink text-xs font-bold flex items-center gap-2"
+                  className="px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold flex items-center gap-2 min-h-[44px]"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Cetak / Simpan PDF</span>

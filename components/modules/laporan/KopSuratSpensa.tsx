@@ -27,14 +27,18 @@ export function KopSuratSpensa({ subJudul }: KopSuratSpensaProps) {
         <div style={{ flexShrink: 0, width: 72, height: 72 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo/school_logo.png"
+            src="/logo/logo_1.png"
             alt="Logo SMP Negeri 1 Sragen"
             width={72}
             height={72}
-            style={{ objectFit: "contain", borderRadius: "50%" }}
+            style={{ objectFit: "contain", width: 72, height: 72 }}
             onError={(e) => {
-              // fallback: lingkaran teks jika gambar tidak ada
-              (e.currentTarget as HTMLImageElement).style.display = "none";
+              const target = e.currentTarget as HTMLImageElement;
+              if (target.src.includes("logo_1.png")) {
+                target.src = "/logo/school_logo.png";
+              } else {
+                target.style.display = "none";
+              }
             }}
           />
         </div>

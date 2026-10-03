@@ -15,6 +15,7 @@ import { AnggotaRecord, UserProfile } from "@/lib/mock/store";
 import { formatIDR } from "@/lib/utils/currency";
 import { calculateKasSummary } from "@/lib/utils/kas-calc";
 import { getAcademicSemester } from "@/lib/utils/semester";
+import { AgendaOneWeekWidget } from "@/components/modules/proker/AgendaOneWeekWidget";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -210,6 +211,9 @@ export default function PembinaDashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Widget Agenda 1 Minggu ke Depan (View-Only) */}
+      <AgendaOneWeekWidget />
 
       {/* Priority Action: Dual Gate Items Waiting for Pembina */}
       <div className="space-y-4">

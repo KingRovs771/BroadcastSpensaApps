@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   UserCheck,
   User,
+  CalendarDays,
 } from "lucide-react";
 
 import { ALL_NAV_ITEMS, isRouteAllowedForUser } from "@/lib/utils/nav-permissions";
@@ -74,6 +75,11 @@ export function Sidebar() {
       label: "Notulen Rapat",
       href: "/notulen",
       icon: FileText,
+    },
+    {
+      label: "Program Kerja",
+      href: "/proker",
+      icon: CalendarDays,
     },
     {
       label: "Keuangan Pembina",

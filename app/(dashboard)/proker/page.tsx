@@ -171,6 +171,201 @@ function ProkerCalendar({
   );
 }
 
+// ── Form Data Interface ──────────────────────────────────────────────────────
+interface ProkerFormData {
+  nama_kegiatan: string;
+  tanggal: string;
+  waktu: string;
+  lokasi: string;
+  penanggung_jawab: string;
+  deskripsi: string;
+  status: ProkerItem["status"];
+}
+
+// ── Standalone ProkerFormModal (di luar ProkerPage agar tidak re-mount saat mengetik) ──
+function ProkerFormModal({
+  title,
+  form,
+  setForm,
+  isSubmitting,
+  onSubmit,
+  onClose,
+}: {
+  title: string;
+  form: ProkerFormData;
+  setForm: React.Dispatch<React.SetStateAction<ProkerFormData>>;
+  isSubmitting: boolean;
+  onSubmit: (e: React.FormEvent) => Promise<void>;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="proker-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-cosmic/80 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-lg w-full p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10"
+      >
+        <div className="flex items-center justify-between pb-4 border-b border-studio-border-subtle">
+          <h3 id="proker-modal-title" className="text-sm font-bold text-white">
+            {title}
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="Tutup modal"
+            className="p-1.5 rounded-lg text-studio-text-secondary hover:text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-4">
+          {/* Nama Kegiatan */}
+          <div>
+            <label htmlFor="pk-nama" className="block text-xs font-semibold text-white mb-1">
+              Nama Kegiatan *
+            </label>
+            <input
+              id="pk-nama"
+              type="text"
+              required
+              value={form.nama_kegiatan}
+              onChange={(e) => setForm((prev) => ({ ...prev, nama_kegiatan: e.target.value }))}
+              placeholder="Contoh: Rapat Koordinasi Produksi Q2"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Tanggal */}
+            <div>
+              <label htmlFor="pk-tanggal" className="block text-xs font-semibold text-white mb-1">
+                Tanggal *
+              </label>
+              <input
+                id="pk-tanggal"
+                type="date"
+                required
+                value={form.tanggal}
+                onChange={(e) => setForm((prev) => ({ ...prev, tanggal: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+              />
+            </div>
+            {/* Waktu */}
+            <div>
+              <label htmlFor="pk-waktu" className="block text-xs font-semibold text-white mb-1">
+                Waktu
+              </label>
+              <input
+                id="pk-waktu"
+                type="text"
+                value={form.waktu}
+                onChange={(e) => setForm((prev) => ({ ...prev, waktu: e.target.value }))}
+                placeholder="08.00 – 10.00 WIB"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+              />
+            </div>
+          </div>
+
+          {/* Lokasi */}
+          <div>
+            <label htmlFor="pk-lokasi" className="block text-xs font-semibold text-white mb-1">
+              Lokasi
+            </label>
+            <input
+              id="pk-lokasi"
+              type="text"
+              value={form.lokasi}
+              onChange={(e) => setForm((prev) => ({ ...prev, lokasi: e.target.value }))}
+              placeholder="Studio Broadcast / Aula Sekolah"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+            />
+          </div>
+
+          {/* Penanggung Jawab */}
+          <div>
+            <label htmlFor="pk-pj" className="block text-xs font-semibold text-white mb-1">
+              Penanggung Jawab
+            </label>
+            <input
+              id="pk-pj"
+              type="text"
+              value={form.penanggung_jawab}
+              onChange={(e) => setForm((prev) => ({ ...prev, penanggung_jawab: e.target.value }))}
+              placeholder="Nama PJ kegiatan"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+            />
+          </div>
+
+          {/* Deskripsi */}
+          <div>
+            <label htmlFor="pk-deskripsi" className="block text-xs font-semibold text-white mb-1">
+              Deskripsi
+            </label>
+            <textarea
+              id="pk-deskripsi"
+              rows={3}
+              value={form.deskripsi}
+              onChange={(e) => setForm((prev) => ({ ...prev, deskripsi: e.target.value }))}
+              placeholder="Uraian singkat tujuan dan kegiatan..."
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white font-mono focus:border-spectrum-cyan focus:outline-none"
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label htmlFor="pk-status" className="block text-xs font-semibold text-white mb-1">
+              Status
+            </label>
+            <select
+              id="pk-status"
+              value={form.status}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, status: e.target.value as ProkerItem["status"] }))
+              }
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+            >
+              <option value="terjadwal">Terjadwal</option>
+              <option value="selesai">Selesai</option>
+              <option value="dibatalkan">Dibatalkan</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-studio-border-subtle">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-studio-text-secondary hover:text-white rounded-lg min-h-[44px]"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2 text-xs font-bold text-ink bg-spectrum-cobalt hover:bg-sky-400 rounded-lg transition-all shadow-cyan min-h-[44px] disabled:opacity-50"
+            >
+              {isSubmitting ? "Menyimpan..." : "Simpan"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function ProkerPage() {
   const { currentUser, prokerList, setProkerList, refreshData, logAction, supabase } = useSession();
@@ -312,132 +507,6 @@ export default function ProkerPage() {
     const d = new Date(dateStr + "T00:00:00");
     return d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   };
-
-  // ── ProkerFormModal ────────────────────────────────────────────────────────
-  const ProkerFormModal = ({
-    title,
-    onSubmit,
-    onClose,
-  }: {
-    title: string;
-    onSubmit: (e: React.FormEvent) => Promise<void>;
-    onClose: () => void;
-  }) => (
-    <div role="dialog" aria-modal="true" aria-labelledby="proker-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-cosmic/80 backdrop-blur-sm"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        className="relative bg-surface-2 border border-studio-border-medium rounded-2xl max-w-lg w-full p-6 shadow-orbital overflow-y-auto max-h-[90vh] z-10"
-      >
-        <div className="flex items-center justify-between pb-4 border-b border-studio-border-subtle">
-          <h3 id="proker-modal-title" className="text-sm font-bold text-white">{title}</h3>
-          <button onClick={onClose} aria-label="Tutup modal" className="p-1.5 rounded-lg text-studio-text-secondary hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit} className="mt-4 space-y-4">
-          {/* Nama Kegiatan */}
-          <div>
-            <label htmlFor="pk-nama" className="block text-xs font-semibold text-white mb-1">Nama Kegiatan *</label>
-            <input
-              id="pk-nama" type="text" required value={form.nama_kegiatan}
-              onChange={(e) => setForm({ ...form, nama_kegiatan: e.target.value })}
-              placeholder="Contoh: Rapat Koordinasi Produksi Q2"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {/* Tanggal */}
-            <div>
-              <label htmlFor="pk-tanggal" className="block text-xs font-semibold text-white mb-1">Tanggal *</label>
-              <input
-                id="pk-tanggal" type="date" required value={form.tanggal}
-                onChange={(e) => setForm({ ...form, tanggal: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-              />
-            </div>
-            {/* Waktu */}
-            <div>
-              <label htmlFor="pk-waktu" className="block text-xs font-semibold text-white mb-1">Waktu</label>
-              <input
-                id="pk-waktu" type="text" value={form.waktu}
-                onChange={(e) => setForm({ ...form, waktu: e.target.value })}
-                placeholder="08.00 – 10.00 WIB"
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          {/* Lokasi */}
-          <div>
-            <label htmlFor="pk-lokasi" className="block text-xs font-semibold text-white mb-1">Lokasi</label>
-            <input
-              id="pk-lokasi" type="text" value={form.lokasi}
-              onChange={(e) => setForm({ ...form, lokasi: e.target.value })}
-              placeholder="Studio Broadcast / Aula Sekolah"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-            />
-          </div>
-
-          {/* Penanggung Jawab */}
-          <div>
-            <label htmlFor="pk-pj" className="block text-xs font-semibold text-white mb-1">Penanggung Jawab</label>
-            <input
-              id="pk-pj" type="text" value={form.penanggung_jawab}
-              onChange={(e) => setForm({ ...form, penanggung_jawab: e.target.value })}
-              placeholder="Nama PJ kegiatan"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-            />
-          </div>
-
-          {/* Deskripsi */}
-          <div>
-            <label htmlFor="pk-deskripsi" className="block text-xs font-semibold text-white mb-1">Deskripsi</label>
-            <textarea
-              id="pk-deskripsi" rows={3} value={form.deskripsi}
-              onChange={(e) => setForm({ ...form, deskripsi: e.target.value })}
-              placeholder="Uraian singkat tujuan dan kegiatan..."
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white font-mono focus:border-spectrum-cyan focus:outline-none"
-            />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label htmlFor="pk-status" className="block text-xs font-semibold text-white mb-1">Status</label>
-            <select
-              id="pk-status" value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as ProkerItem["status"] })}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
-            >
-              <option value="terjadwal">Terjadwal</option>
-              <option value="selesai">Selesai</option>
-              <option value="dibatalkan">Dibatalkan</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-studio-border-subtle">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-semibold text-studio-text-secondary hover:text-white rounded-lg min-h-[44px]">
-              Batal
-            </button>
-            <button
-              type="submit" disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold text-ink bg-spectrum-cobalt hover:bg-sky-400 rounded-lg transition-all shadow-cyan min-h-[44px] disabled:opacity-50"
-            >
-              {isSubmitting ? "Menyimpan..." : "Simpan"}
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
-  );
 
   // ── Print View ─────────────────────────────────────────────────────────────
   if (isPrintMode) {
@@ -679,6 +748,9 @@ export default function ProkerPage() {
           <ProkerFormModal
             key="create"
             title="Tambah Program Kerja"
+            form={form}
+            setForm={setForm}
+            isSubmitting={isSubmitting}
             onSubmit={handleCreate}
             onClose={() => setIsCreateOpen(false)}
           />
@@ -687,8 +759,14 @@ export default function ProkerPage() {
           <ProkerFormModal
             key="edit"
             title="Edit Program Kerja"
+            form={form}
+            setForm={setForm}
+            isSubmitting={isSubmitting}
             onSubmit={handleUpdate}
-            onClose={() => { setEditingItem(null); setForm(emptyForm); }}
+            onClose={() => {
+              setEditingItem(null);
+              setForm(emptyForm);
+            }}
           />
         )}
         {deletingItem && (

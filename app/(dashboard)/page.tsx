@@ -25,6 +25,7 @@ import {
   CalendarDays,
   Clock,
 } from "lucide-react";
+import { AgendaOneWeekWidget } from "@/components/modules/proker/AgendaOneWeekWidget";
 
 export default function DashboardHomePage() {
   const {
@@ -52,32 +53,6 @@ export default function DashboardHomePage() {
   const activeProjects = projectList.filter(
     (p) => p.status === "perencanaan" || p.status === "proses"
   );
-
-  // ── Agenda 1 Minggu ke Depan ──────────────────────────────────────────────
-  const todayStr = new Date().toISOString().split("T")[0];
-  const nextWeekStr = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().split("T")[0];
-  })();
-
-  type AgendaEntry = { date: string; title: string; type: "proker" | "kanban" | "produksi"; extra?: string };
-
-  const upcomingAgenda: AgendaEntry[] = [
-    // Proker dengan status terjadwal
-    ...prokerList
-      .filter((p) => p.status === "terjadwal" && p.tanggal >= todayStr && p.tanggal <= nextWeekStr)
-      .map((p): AgendaEntry => ({ date: p.tanggal, title: p.nama_kegiatan, type: "proker", extra: p.lokasi ?? undefined })),
-    // Project Kanban dengan deadline dalam 1 minggu
-    ...projectList
-      .filter((p) => p.deadline && p.deadline >= todayStr && p.deadline <= nextWeekStr && p.status !== "selesai" && p.status !== "tunda")
-      .map((p): AgendaEntry => ({ date: p.deadline!, title: `Deadline: ${p.nama_project}`, type: "kanban", extra: `Divisi ${p.divisi}` })),
-    // Produksi pending (script/pertanyaan yang butuh tindakan)
-    ...produksiList
-      .filter((p) => p.status === "pending_approval" || p.status === "pending_pembina" || p.status === "pending_ketua")
-      .slice(0, 3)
-      .map((p): AgendaEntry => ({ date: p.created_at.split("T")[0], title: `Review Script: ${p.judul}`, type: "produksi", extra: p.jenis.toUpperCase() })),
-  ].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <div className="space-y-6">
@@ -187,63 +162,8 @@ export default function DashboardHomePage() {
         </div>
       </div>
 
-      {/* ── Agenda 1 Minggu ke Depan ──────────────────────────────────── */}
-      <div className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle space-y-3">
-        <div className="flex items-center justify-between pb-3 border-b border-studio-border-subtle">
-          <h2 className="text-xs font-mono font-bold uppercase text-white tracking-wider flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-spectrum-gold" />
-            Kegiatan 7 Hari ke Depan
-          </h2>
-          <Link href="/proker" className="text-xs font-mono text-spectrum-cyan hover:underline flex items-center gap-1">
-            <span>Program Kerja</span>
-            <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        {upcomingAgenda.length === 0 ? (
-          <div className="py-4 text-center">
-            <CalendarDays className="w-6 h-6 text-studio-text-muted mx-auto mb-1 opacity-40" />
-            <p className="text-xs text-studio-text-secondary">Tidak ada agenda dalam 7 hari ke depan.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {upcomingAgenda.map((item, idx) => {
-              const typeColor = item.type === "proker" ? "text-spectrum-gold border-spectrum-gold/30 bg-spectrum-gold/10"
-                : item.type === "kanban" ? "text-spectrum-cyan border-spectrum-cyan/30 bg-spectrum-cyan/10"
-                : "text-orbital-magenta border-orbital-magenta/30 bg-orbital-magenta/10";
-              const typeLabel = item.type === "proker" ? "PROKER" : item.type === "kanban" ? "KANBAN" : "PRODUKSI";
-              const dateObj = new Date(item.date + "T00:00:00");
-              const isToday = item.date === todayStr;
-              return (
-                <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-surface-2 border border-studio-border-subtle">
-                  <div className="flex-shrink-0 text-center min-w-[40px]">
-                    <p className={`text-[10px] font-mono font-bold ${isToday ? "text-spectrum-amber" : "text-studio-text-muted"}`}>
-                      {isToday ? "HARI INI" : dateObj.toLocaleDateString("id-ID", { weekday: "short" }).toUpperCase()}
-                    </p>
-                    <p className={`text-sm font-bold ${isToday ? "text-spectrum-amber" : "text-white"}`}>
-                      {dateObj.getDate()}
-                    </p>
-                    <p className="text-[9px] font-mono text-studio-text-muted">
-                      {dateObj.toLocaleDateString("id-ID", { month: "short" })}
-                    </p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${typeColor}`}>
-                        {typeLabel}
-                      </span>
-                    </div>
-                    <p className="text-xs font-semibold text-white truncate">{item.title}</p>
-                    {item.extra && (
-                      <p className="text-[10px] text-studio-text-muted font-mono mt-0.5">{item.extra}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* ── Widget Agenda 1 Minggu ke Depan (View-Only untuk Seluruh Role) ── */}
+      <AgendaOneWeekWidget />
 
       {/* Quick Launchpad & Operational Hub */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

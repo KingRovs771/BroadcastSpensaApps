@@ -27,6 +27,7 @@ import {
   LogOut,
   Sparkles,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 
 export function MobileMenuDrawer() {
@@ -102,6 +103,12 @@ export function MobileMenuDrawer() {
       href: "/notulen",
       icon: FileText,
       desc: "Editor risalah & arsip rapat",
+    },
+    {
+      label: "Program Kerja",
+      href: "/proker",
+      icon: CalendarDays,
+      desc: "Kalender agenda & manajemen kegiatan klub",
     },
     {
       label: "Keuangan Pembina",
