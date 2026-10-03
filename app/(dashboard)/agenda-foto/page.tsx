@@ -941,11 +941,19 @@ export default function AgendaFotoPage() {
                   />
                 </div>
 
-                <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">
+                <h3
+                  onClick={() => setDetailItem(item)}
+                  className="text-sm font-bold text-white leading-snug line-clamp-2 hover:text-spectrum-cyan transition-colors cursor-pointer"
+                  title="Klik untuk melihat detail agenda lomba"
+                >
                   {item.kejuaraan}
                 </h3>
 
-                <div className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-1.5 text-xs">
+                <div
+                  onClick={() => setDetailItem(item)}
+                  className="p-3 rounded-xl bg-surface-2 border border-studio-border-subtle space-y-1.5 text-xs cursor-pointer hover:border-spectrum-cyan/40 transition-colors"
+                  title="Klik untuk melihat detail agenda lomba"
+                >
                   <p className="font-bold text-spectrum-cyan flex items-center gap-1.5">
                     <Trophy className="w-3.5 h-3.5 shrink-0 text-spectrum-gold" />
                     <span className="truncate">{item.nama_siswa}</span>
@@ -973,13 +981,15 @@ export default function AgendaFotoPage() {
 
               {/* Action Buttons: Status Toggle, View, Edit, Delete */}
               <div className="pt-3 border-t border-studio-border-subtle flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setDetailItem(item)}
                     title="Lihat Detail Kejuaraan"
-                    className="p-2 rounded-lg text-studio-text-secondary hover:text-white hover:bg-surface-2 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                    aria-label={`Lihat detail ${item.kejuaraan}`}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-surface-2 hover:bg-surface-3 text-studio-text-secondary hover:text-white transition-colors border border-studio-border-subtle min-h-[36px]"
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5 text-spectrum-cyan" />
+                    <span>Detail</span>
                   </button>
 
                   {canManage && (

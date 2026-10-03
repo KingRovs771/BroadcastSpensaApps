@@ -113,7 +113,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     ],
   },
   {
-    label: "Agenda Foto / Lomba",
+    label: "Agenda Foto & Kejuaraan",
     href: "/agenda-foto",
     allowedRoles: [
       "administrator",
@@ -121,8 +121,9 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
       "ketua_broadcast",
       "sekretaris",
       "ketua_divisi",
+      "anggota",
     ],
-    // Hanya Ketua Divisi Fotografer
+    // Untuk ketua_divisi & anggota, khusus divisi Fotografer
     allowedDivisi: ["Fotografer"],
   },
   {
@@ -197,6 +198,11 @@ export function isRouteAllowedForUser(
 
   // Semua anggota yang tergabung di Divisi Kreatif berhak mengakses modul Produksi Dual-Gate
   if (item.href === "/produksi" && (role === "div_kreatif" || divisi === "Kreatif")) {
+    return true;
+  }
+
+  // Anggota tetap maupun pengurus yang tergabung di Divisi Fotografer berhak mengakses Agenda Foto & Kejuaraan
+  if (item.href === "/agenda-foto" && divisi === "Fotografer") {
     return true;
   }
 

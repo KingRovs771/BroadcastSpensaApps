@@ -88,7 +88,7 @@ export function Sidebar() {
       restricted: !isPrivilegedKeuangan,
     },
     {
-      label: "Agenda Foto / Lomba",
+      label: "Agenda Foto & Kejuaraan",
       href: "/agenda-foto",
       icon: Camera,
     },

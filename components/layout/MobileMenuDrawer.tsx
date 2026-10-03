@@ -118,7 +118,7 @@ export function MobileMenuDrawer() {
       badge: "KHUSUS",
     },
     {
-      label: "Agenda Foto / Lomba",
+      label: "Agenda Foto & Kejuaraan",
       href: "/agenda-foto",
       icon: Camera,
       desc: "Rekor kejuaraan & dokumentasi lomba",
