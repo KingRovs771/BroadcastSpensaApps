@@ -17,6 +17,7 @@ import {
   KeuanganPembinaItem,
   AbsensiRecord,
   AuditLogItem,
+  ProkerItem,
 } from "@/lib/mock/store";
 
 // ─── Fallback guest profile ────────────────────────────────────────────────────
@@ -79,6 +80,9 @@ interface SessionContextType {
   auditLogs: AuditLogItem[];
   logAction: (action: string, targetTable: string, targetId?: string, details?: string) => void;
   supabase: any;
+
+  prokerList: ProkerItem[];
+  setProkerList: React.Dispatch<React.SetStateAction<ProkerItem[]>>;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -110,6 +114,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [notulenList, setNotulenList] = useState<NotulenItem[]>([]);
   const [keuanganPembinaList, setKeuanganPembinaList] = useState<KeuanganPembinaItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [prokerList, setProkerList] = useState<ProkerItem[]>([]);
 
   // ── Fetch profile from Supabase profiles table ─────────────────────────────
   const fetchAndSetProfile = useCallback(async (userId: string) => {
@@ -273,6 +278,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       } else {
         setAllUsers([]);
       }
+      // 14. Proker (Program Kerja)
+      const { data: prokerData } = await supabase
+        .from("proker")
+        .select("*")
+        .order("tanggal", { ascending: true });
+      if (prokerData) {
+        setProkerList(prokerData as ProkerItem[]);
+      } else {
+        setProkerList([]);
+      }
     } catch (err) {
       console.error("Failed to load Supabase data:", err);
     }
@@ -399,6 +414,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setPembinaList([]);
     setAllUsers([]);
     setAuditLogs([]);
+    setProkerList([]);
   };
 
   // ── Audit logger ──────────────────────────────────────────────────────────
@@ -491,6 +507,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         auditLogs,
         logAction,
         supabase,
+        prokerList,
+        setProkerList,
       }}
     >
       {children}

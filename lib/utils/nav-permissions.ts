@@ -150,6 +150,21 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     ],
   },
   {
+    label: "Program Kerja",
+    href: "/proker",
+    allowedRoles: [
+      "administrator",
+      "pembina",
+      "ketua_broadcast",
+      "ketua_divisi",
+      "sekretaris",
+      "bendahara",
+      "div_kreatif",
+      "pj",
+      "anggota",
+    ],
+  },
+  {
     label: "Laporan Semester",
     href: "/laporan",
     allowedRoles: [

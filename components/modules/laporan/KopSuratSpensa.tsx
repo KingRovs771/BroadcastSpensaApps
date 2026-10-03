@@ -1,49 +1,145 @@
 import React from "react";
-import Image from "next/image";
 
 interface KopSuratSpensaProps {
   subJudul?: string;
 }
 
-export function KopSuratSpensa({ subJudul = "LAPORAN PERTANGGUNGJAWABAN SEMESTER" }: KopSuratSpensaProps) {
+/**
+ * Kop Surat Resmi Broadcast Spensa — SMP Negeri 1 Sragen
+ * ────────────────────────────────────────────────────────
+ * Logo boleh menggunakan <img> (sekolah & broadcast).
+ * Semua teks murni HTML/CSS (tidak ada gambar teks).
+ * Warna & garis sesuai standar dokumen resmi kedinasan.
+ */
+export function KopSuratSpensa({ subJudul }: KopSuratSpensaProps) {
   return (
-    <div className="w-full text-slate-900 border-b-4 border-double border-slate-900 pb-4 mb-6">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left: Emblem SMPN 1 Spensa */}
-        <div className="w-20 h-20 relative flex-shrink-0 flex items-center justify-center p-1 bg-slate-100 rounded-full border border-slate-300">
-          <div className="text-center">
-            <span className="text-[9px] font-bold tracking-tighter block text-blue-900">SPENSA</span>
-            <span className="text-[8px] font-mono text-slate-600 block">SMPN 1</span>
-          </div>
+    <div className="w-full text-slate-900">
+      {/* ── Baris utama kop: logo kiri | teks tengah | logo kanan ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          paddingBottom: "8px",
+        }}
+      >
+        {/* Logo Sekolah (kiri) */}
+        <div style={{ flexShrink: 0, width: 72, height: 72 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo/school_logo.png"
+            alt="Logo SMP Negeri 1 Sragen"
+            width={72}
+            height={72}
+            style={{ objectFit: "contain", borderRadius: "50%" }}
+            onError={(e) => {
+              // fallback: lingkaran teks jika gambar tidak ada
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
         </div>
 
-        {/* Center: Institutional Typography */}
-        <div className="text-center flex-1">
-          <h3 className="text-xs font-serif font-bold tracking-[0.18em] uppercase text-slate-700">
-            PEMERINTAH KOTA · DINAS PENDIDIKAN DAN KEBUDAYAAN
-          </h3>
-          <h1 className="text-lg sm:text-xl font-serif font-extrabold tracking-[0.15em] text-blue-950 uppercase mt-0.5">
-            SMP NEGERI 1 (SPENSA)
-          </h1>
-          <h2 className="text-xs font-serif font-bold tracking-widest text-slate-800 uppercase mt-0.5">
-            UNIT KEGIATAN EKSTRAKURIKULER BROADCAST & MULTIMEDIA
-          </h2>
-          <p className="text-[10px] text-slate-600 mt-1 font-sans">
-            Jl. Pendidikan No. 1 Spensa · Telp. (021) 555-SPENSA · Email: broadcast@spensa.sch.id
+        {/* Teks Institusi (tengah) */}
+        <div style={{ flex: 1, textAlign: "center" }}>
+          {/* Nama Sekolah */}
+          <p
+            style={{
+              fontFamily: "serif",
+              fontWeight: 700,
+              fontSize: "18px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "#1e293b",
+              margin: 0,
+              lineHeight: 1.2,
+            }}
+          >
+            CLUB BROADCAST
+          </p>
+          <p
+            style={{
+              fontFamily: "serif",
+              fontWeight: 900,
+              fontSize: "18px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "#1e293b",
+              margin: 0,
+              lineHeight: 1.3,
+            }}
+          >
+            SMP NEGERI 1 SRAGEN
+          </p>
+          {/* Alamat & Kontak */}
+          <p
+            style={{
+              fontFamily: "sans-serif",
+              fontSize: "10px",
+              color: "#475569",
+              margin: "2px 0 0",
+              lineHeight: 1.5,
+              textDecoration: "underline",
+            }}
+          >
+            Jln Raya Sukowati No. 162&nbsp;&nbsp;Telp./Fax. (0271) 891030 Sragen &ndash; 57212
+          </p>
+          <p
+            style={{
+              fontFamily: "sans-serif",
+              fontSize: "10px",
+              color: "#475569",
+              margin: 0,
+              lineHeight: 1.5,
+              textDecoration: "underline",
+            }}
+          >
+            Website: www.smpn1sragen.sch.id, e-mail: info@smpn1sragen.sch.id&nbsp;&nbsp;Akreditasi: 95 (A)
           </p>
         </div>
 
-        {/* Right: Broadcast Spensa Logo */}
-        <div className="w-20 h-20 relative flex-shrink-0 flex items-center justify-center">
-          <Image
+        {/* Logo Broadcast (kanan) */}
+        <div style={{ flexShrink: 0, width: 72, height: 72 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/logo/BC_DONE.png"
-            alt="Logo Resmi Broadcast Spensa"
+            alt="Logo Broadcast Spensa"
             width={72}
             height={72}
-            className="rounded-full object-cover shadow-sm"
+            style={{ objectFit: "contain", borderRadius: "50%" }}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
           />
         </div>
       </div>
+
+      {/* ── Garis Pemisah Tebal (standar kop resmi) ── */}
+      <div
+        style={{
+          borderTop: "4px solid #0f172a",
+          borderBottom: "1px solid #0f172a",
+          height: 0,
+          marginBottom: "16px",
+        }}
+      />
+
+      {/* Sub-judul dokumen (opsional) */}
+      {subJudul && (
+        <p
+          style={{
+            fontFamily: "serif",
+            fontWeight: 700,
+            fontSize: "12px",
+            textTransform: "uppercase",
+            textAlign: "center",
+            letterSpacing: "0.12em",
+            color: "#1e293b",
+            marginBottom: "8px",
+          }}
+        >
+          {subJudul}
+        </p>
+      )}
     </div>
   );
 }

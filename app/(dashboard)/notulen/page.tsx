@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
-import { NotulenItem } from "@/lib/mock/store";
+import { NotulenItem, UserProfile } from "@/lib/mock/store";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   FileText,
@@ -48,49 +48,77 @@ export default function NotulenPage() {
     ? notulenList
     : notulenList.filter((n) => n.status === "final");
 
+  // Pemetaan role ke jabatan resmi untuk pengesahan dokumen
+  const roleToJabatan = (role?: string): string => {
+    switch (role) {
+      case "administrator":  return "Pembina Broadcast";
+      case "pembina":        return "Dewan Pembina";
+      case "ketua_broadcast": return "Ketua Broadcast";
+      case "sekretaris":     return "Sekretaris Broadcast";
+      case "bendahara":      return "Bendahara Broadcast";
+      case "ketua_divisi":   return "Ketua Divisi";
+      case "div_kreatif":    return "Anggota Divisi Kreatif";
+      case "anggota":        return "Anggota Tetap";
+      default:               return "Pengurus Broadcast Spensa";
+    }
+  };
+
   // Helper untuk menampilkan nama lengkap resmi (bukan UID)
-  const getAuthorName = (idOrUid?: string | null) => {
-    if (!idOrUid) return "Sekretaris Broadcast Spensa";
-    const u = allUsers.find(
+  const getUserById = (idOrUid?: string | null): UserProfile | undefined => {
+    if (!idOrUid) return undefined;
+    return allUsers.find(
       (user) => user.id === idOrUid || user.email?.toLowerCase() === idOrUid.toLowerCase()
     );
-    if (u && u.nama) return u.nama;
+  };
+
+  const getAuthorName = (idOrUid?: string | null) => {
+    if (!idOrUid) return "Sekretaris Broadcast Spensa";
+    const u = getUserById(idOrUid);
+    if (u?.nama) return u.nama;
 
     const a = anggotaList.find(
       (ang) => ang.id === idOrUid || ang.user_id === idOrUid || ang.nama_lengkap.toLowerCase() === idOrUid.toLowerCase()
     );
-    if (a && a.nama_lengkap) return a.nama_lengkap;
+    if (a?.nama_lengkap) return a.nama_lengkap;
 
     if (currentUser.id === idOrUid && currentUser.nama) return currentUser.nama;
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUid);
-    if (isUuid) {
-      return "Sekretaris Broadcast Spensa";
-    }
+    if (isUuid) return "Sekretaris Broadcast Spensa";
 
     return idOrUid;
   };
 
+  const getAuthorJabatan = (idOrUid?: string | null): string => {
+    const u = getUserById(idOrUid);
+    if (u) return roleToJabatan(u.role);
+    // fallback: pencatat notulen biasanya sekretaris
+    return "Sekretaris Broadcast Spensa";
+  };
+
   const getApproverName = (idOrUid?: string | null) => {
     if (!idOrUid) return "Menunggu Pengesahan";
-    const u = allUsers.find(
-      (user) => user.id === idOrUid || user.email?.toLowerCase() === idOrUid.toLowerCase()
-    );
-    if (u && u.nama) return u.nama;
+    const u = getUserById(idOrUid);
+    if (u?.nama) return u.nama;
 
     const a = anggotaList.find(
       (ang) => ang.id === idOrUid || ang.user_id === idOrUid || ang.nama_lengkap.toLowerCase() === idOrUid.toLowerCase()
     );
-    if (a && a.nama_lengkap) return a.nama_lengkap;
+    if (a?.nama_lengkap) return a.nama_lengkap;
 
     if (currentUser.id === idOrUid && currentUser.nama) return currentUser.nama;
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUid);
-    if (isUuid) {
-      return "Ketua Broadcast Spensa";
-    }
+    if (isUuid) return "Ketua Broadcast Spensa";
 
     return idOrUid;
+  };
+
+  const getApproverJabatan = (idOrUid?: string | null): string => {
+    const u = getUserById(idOrUid);
+    if (u) return roleToJabatan(u.role);
+    // fallback: yang mengesahkan biasanya ketua_broadcast
+    return "Ketua Broadcast Spensa";
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -554,7 +582,7 @@ export default function NotulenPage() {
                     <p className="font-bold text-slate-900 underline">
                       {getAuthorName(selectedNotulenForView.dibuat_oleh)}
                     </p>
-                    <p className="text-[10px] text-slate-600">Sekretaris Broadcast Spensa</p>
+                    <p className="text-[10px] text-slate-600">{getAuthorJabatan(selectedNotulenForView.dibuat_oleh)}</p>
                   </div>
 
                   <div className="flex flex-col items-center">
@@ -579,7 +607,7 @@ export default function NotulenPage() {
                     <p className="font-bold text-slate-900 underline">
                       {getApproverName(selectedNotulenForView.disetujui_oleh)}
                     </p>
-                    <p className="text-[10px] text-slate-600">Ketua Broadcast Spensa</p>
+                    <p className="text-[10px] text-slate-600">{getApproverJabatan(selectedNotulenForView.disetujui_oleh)}</p>
                   </div>
                 </div>
               </div>

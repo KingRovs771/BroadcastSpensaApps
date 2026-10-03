@@ -180,6 +180,20 @@ export interface KeuanganPembinaItem {
   catatan_pembina?: string;
 }
 
+export interface ProkerItem {
+  id: string;
+  nama_kegiatan: string;
+  tanggal: string;          // YYYY-MM-DD
+  waktu?: string;           // e.g. "08.00 – 10.00 WIB"
+  lokasi?: string;
+  penanggung_jawab?: string;
+  deskripsi?: string;
+  status: "terjadwal" | "selesai" | "dibatalkan";
+  dibuat_oleh?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLogItem {
   id: string;
   actor_id: string;
