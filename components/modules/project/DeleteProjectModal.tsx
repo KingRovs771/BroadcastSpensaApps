@@ -17,7 +17,7 @@ export function DeleteProjectModal({
   project,
   onClose,
 }: DeleteProjectModalProps) {
-  const { refreshData, logAction, supabase } = useSession();
+  const { refreshData, logAction, supabase, setProjectList } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -28,19 +28,26 @@ export function DeleteProjectModal({
     setIsDeleting(true);
 
     try {
-      const { error } = await supabase
-        .from("project")
-        .delete()
-        .eq("id", project.id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project.id);
 
-      if (error) {
-        console.error("Supabase delete project error:", error);
-        setErrorMsg(`Gagal menghapus project: ${error.message}`);
-        setIsDeleting(false);
-        return;
+      if (isUuid) {
+        const { error } = await supabase
+          .from("project")
+          .delete()
+          .eq("id", project.id);
+
+        if (error) {
+          console.error("Supabase delete project error:", error);
+          setErrorMsg(`Gagal menghapus project: ${error.message}`);
+          setIsDeleting(false);
+          return;
+        }
       }
 
+      // Hapus secara reaktif dari state lokal
+      setProjectList((prev) => prev.filter((p) => p.id !== project.id));
       await refreshData();
+
       logAction(
         "DELETE_PROJECT",
         "project",
@@ -49,9 +56,13 @@ export function DeleteProjectModal({
       );
 
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setErrorMsg(`Terjadi kesalahan sistem: ${err.message || err}`);
+      if (err instanceof Error) {
+        setErrorMsg(`Terjadi kesalahan sistem: ${err.message}`);
+      } else {
+        setErrorMsg("Terjadi kesalahan sistem saat menghapus project.");
+      }
     } finally {
       setIsDeleting(false);
     }

@@ -58,13 +58,17 @@ export default function ProjectPage() {
   };
 
   const canDeleteProject = (project: ProjectKanban) => {
-    if (isAnggota) return false;
+    if (isAnggota && currentUser.divisi !== "Kreatif") return false;
     return (
       currentUser.role === "administrator" ||
       currentUser.role === "pembina" ||
       currentUser.role === "ketua_broadcast" ||
       currentUser.role === "ketua_divisi" ||
-      currentUser.id === project.penanggung_jawab
+      currentUser.role === "sekretaris" ||
+      currentUser.role === "div_kreatif" ||
+      currentUser.divisi === "Kreatif" ||
+      currentUser.id === project.penanggung_jawab ||
+      (Array.isArray(project.tim) && project.tim.includes(currentUser.id))
     );
   };
 
