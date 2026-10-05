@@ -31,16 +31,41 @@ export function DeleteProjectModal({
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project.id);
 
       if (isUuid) {
-        const { error } = await supabase
-          .from("project")
-          .delete()
-          .eq("id", project.id);
+        let apiSucceeded = false;
+        try {
+          const res = await fetch("/api/project/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId: project.id }),
+          });
 
-        if (error) {
-          console.error("Supabase delete project error:", error);
-          setErrorMsg(`Gagal menghapus project: ${error.message}`);
-          setIsDeleting(false);
-          return;
+          const data = await res.json();
+          if (res.ok && data.success) {
+            apiSucceeded = true;
+          } else if (res.status === 403 || res.status === 401) {
+            setErrorMsg(data.error || "Akses ditolak untuk menghapus project ini.");
+            setIsDeleting(false);
+            return;
+          } else if (!res.ok) {
+            console.warn("API delete notice, trying direct client delete fallback:", data.error);
+          }
+        } catch (fetchErr) {
+          console.warn("API delete fetch error, falling back to direct client:", fetchErr);
+        }
+
+        // Direct client fallback
+        if (!apiSucceeded) {
+          const { error } = await supabase
+            .from("project")
+            .delete()
+            .eq("id", project.id);
+
+          if (error) {
+            console.error("Supabase delete project error:", error);
+            setErrorMsg(`Gagal menghapus project: ${error.message}`);
+            setIsDeleting(false);
+            return;
+          }
         }
       }
 

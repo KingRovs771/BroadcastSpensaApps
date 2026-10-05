@@ -40,6 +40,7 @@ export default function ProjectPage() {
       currentUser.role === "div_kreatif" ||
       currentUser.role === "ketua_broadcast" ||
       currentUser.role === "administrator" ||
+      (currentUser.role as string) === "admin" ||
       currentUser.role === "pembina" ||
       currentUser.role === "ketua_divisi");
 
@@ -47,6 +48,7 @@ export default function ProjectPage() {
     if (isAnggota) return false;
     return (
       currentUser.role === "administrator" ||
+      (currentUser.role as string) === "admin" ||
       currentUser.role === "pembina" ||
       currentUser.role === "ketua_broadcast" ||
       currentUser.role === "ketua_divisi" ||
@@ -61,6 +63,7 @@ export default function ProjectPage() {
     if (isAnggota && currentUser.divisi !== "Kreatif") return false;
     return (
       currentUser.role === "administrator" ||
+      (currentUser.role as string) === "admin" ||
       currentUser.role === "pembina" ||
       currentUser.role === "ketua_broadcast" ||
       currentUser.role === "ketua_divisi" ||
@@ -76,6 +79,7 @@ export default function ProjectPage() {
     if (isAnggota) return false;
     return (
       currentUser.role === "administrator" ||
+      (currentUser.role as string) === "admin" ||
       currentUser.role === "pembina" ||
       currentUser.role === "ketua_broadcast" ||
       currentUser.role === "ketua_divisi" ||

@@ -38,3 +38,7 @@ export const projectUpdateSchema = z.object({
   link_finalisasi: optionalUrl.nullable(),
 });
 
+export const projectDeleteSchema = z.object({
+  projectId: z.string().min(1, "ID project wajib diisi"),
+});
+
