@@ -2,12 +2,12 @@
 
 import React, { useMemo } from "react";
 import { useSession } from "@/components/shared/SessionContext";
-import { CalendarDays, Clock, MapPin, Tag } from "lucide-react";
+import { CalendarDays, Camera } from "lucide-react";
 
 export interface AgendaEntry {
   date: string;
   title: string;
-  type: "proker" | "kanban" | "produksi";
+  type: "proker" | "kanban" | "produksi" | "foto";
   extra?: string;
 }
 
@@ -17,7 +17,7 @@ export interface AgendaEntry {
  * Read-only (hanya view saja tanpa tombol/link navigasi ke menu proker).
  */
 export function AgendaOneWeekWidget() {
-  const { prokerList, projectList, produksiList } = useSession();
+  const { prokerList, projectList, produksiList, agendaFotoList } = useSession();
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const nextWeekStr = useMemo(() => {
@@ -80,8 +80,27 @@ export function AgendaOneWeekWidget() {
         });
       });
 
+    // 4. Agenda Foto dan Kejuaraan Lomba dalam 7 hari
+    (agendaFotoList || [])
+      .filter((a) => {
+        if (!a.tanggal) return false;
+        const itemDate = a.tanggal.split("T")[0];
+        return itemDate >= todayStr && itemDate <= nextWeekStr;
+      })
+      .forEach((a) => {
+        const itemDate = a.tanggal.split("T")[0];
+        list.push({
+          date: itemDate,
+          title: `Foto Kejuaraan: ${a.kejuaraan}`,
+          type: "foto",
+          extra: `Siswa: ${a.nama_siswa} (${a.kelas}) · Tingkat ${a.tingkat.toUpperCase()} · Status: ${
+            a.status === "sudah" ? "Sudah Difoto" : "Belum Difoto"
+          }`,
+        });
+      });
+
     return list.sort((a, b) => a.date.localeCompare(b.date));
-  }, [prokerList, projectList, produksiList, todayStr, nextWeekStr]);
+  }, [prokerList, projectList, produksiList, agendaFotoList, todayStr, nextWeekStr]);
 
   return (
     <div className="p-5 rounded-2xl bg-surface-1 border border-studio-border-subtle space-y-3">
@@ -116,9 +135,17 @@ export function AgendaOneWeekWidget() {
                 ? "text-spectrum-gold border-spectrum-gold/30 bg-spectrum-gold/10"
                 : item.type === "kanban"
                 ? "text-spectrum-cyan border-spectrum-cyan/30 bg-spectrum-cyan/10"
+                : item.type === "foto"
+                ? "text-spectrum-jade border-spectrum-jade/30 bg-spectrum-jade/10"
                 : "text-orbital-magenta border-orbital-magenta/30 bg-orbital-magenta/10";
             const typeLabel =
-              item.type === "proker" ? "PROKER" : item.type === "kanban" ? "KANBAN" : "PRODUKSI";
+              item.type === "proker"
+                ? "PROKER"
+                : item.type === "kanban"
+                ? "KANBAN"
+                : item.type === "foto"
+                ? "AGENDA FOTO & LOMBA"
+                : "PRODUKSI";
 
             const dateObj = new Date(item.date + "T00:00:00");
             const isToday = item.date === todayStr;
@@ -152,8 +179,9 @@ export function AgendaOneWeekWidget() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
                     <span
-                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border ${typeColor}`}
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${typeColor}`}
                     >
+                      {item.type === "foto" && <Camera className="w-2.5 h-2.5 mr-1" />}
                       {typeLabel}
                     </span>
                     <span className="text-[10px] font-mono text-studio-text-muted">
