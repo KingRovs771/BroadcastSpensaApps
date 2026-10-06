@@ -1,20 +1,29 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { ProduksiVideo } from "@/lib/mock/store";
 import { useSession } from "@/components/shared/SessionContext";
 import { transitionDualGateApproval } from "@/lib/utils/produksi-state";
 import { createClient } from "@/lib/supabase/client";
-import { CheckCircle2, Clock, XCircle, AlertCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 
 interface DualGateBannerProps {
   item: ProduksiVideo;
   onUpdate: () => void;
 }
 
+/** Pecah teks pertanyaan menjadi daftar butir (per baris, buang penomoran manual). */
+function splitQuestions(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(\d+[.)]|[-*•])\s*/, "").trim())
+    .filter((l) => l.length > 0);
+}
+
 export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
-  const { currentUser, setProduksiList, logAction, refreshData } = useSession();
+  const { currentUser, setProduksiList, logAction, refreshData, allUsers, auditLogs, projectList } = useSession();
   const supabase = createClient();
+  const [showDetail, setShowDetail] = useState(false);
 
   const isPembina = currentUser.role === "pembina" || currentUser.role === "administrator";
   const isKetua = currentUser.role === "ketua_broadcast" || currentUser.role === "administrator";
@@ -22,13 +31,97 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
   const pembinaApproved = !!item.approved_pembina_by;
   const ketuaApproved = !!item.approved_ketua_by;
 
+  // Nama asli user yang menyetujui (dari tabel profiles)
+  const resolveUserName = (id?: string | null) =>
+    id ? allUsers.find((u) => u.id === id)?.nama : undefined;
+
+  // Nama asli user yang menolak (dari audit_log, karena tabel tidak punya kolom rejected_by)
+  const resolveRejecterName = (actor: "PEMBINA" | "KETUA_BROADCAST") => {
+    const log = auditLogs.find(
+      (l) => l.target_id === item.id && l.action === `REJECT_SCRIPT_${actor}`
+    );
+    if (!log) return undefined;
+    return resolveUserName(log.actor_id) || log.actor_name;
+  };
+
+  const pembinaApproverName = resolveUserName(item.approved_pembina_by) || "Pembina";
+  const ketuaApproverName = resolveUserName(item.approved_ketua_by) || "Ketua Broadcast";
+  const pembinaRejecterName = resolveRejecterName("PEMBINA") || "Pembina";
+  const ketuaRejecterName = resolveRejecterName("KETUA_BROADCAST") || "Ketua Broadcast";
+
+  const questions = item.pertanyaan_podcast ? splitQuestions(item.pertanyaan_podcast) : [];
+
+  /**
+   * Membuat kartu Project Kanban dari naskah/pertanyaan yang sudah lolos Dual-Gate.
+   * Penanda "Ref Produksi" di deskripsi mencegah kartu ganda.
+   */
+  const createKanbanFromApproved = async (prod: ProduksiVideo) => {
+    const refTag = `Ref Produksi: ${prod.id}`;
+    if (projectList.some((p) => p.deskripsi?.includes(refTag))) return;
+
+    const { data: existing } = await supabase
+      .from("project")
+      .select("id")
+      .ilike("deskripsi", `%${refTag}%`)
+      .limit(1);
+    if (existing && existing.length > 0) return;
+
+    const isScript = !!prod.script_text;
+    const header = isScript
+      ? `[Naskah Video Disetujui - ${prod.jenis.toUpperCase()}]`
+      : `[Pertanyaan Podcast Disetujui]`;
+    const deskripsi = `${header}\n${prod.script_text || prod.pertanyaan_podcast || ""}\n\n${refTag}`;
+
+    const uploaderValid = prod.uploaded_by && prod.uploaded_by.length === 36;
+    const pjId = uploaderValid ? prod.uploaded_by : currentUser.id;
+
+    const { data: inserted, error } = await supabase
+      .from("project")
+      .insert({
+        nama_project: prod.judul,
+        deskripsi,
+        penanggung_jawab: pjId,
+        tim: uploaderValid ? [prod.uploaded_by] : [],
+        status: "perencanaan",
+        progress: 10,
+        divisi: prod.divisi,
+        jumlah_views: 0,
+        catatan_update: [
+          {
+            tanggal: new Date().toISOString(),
+            catatan: `Otomatis dibuat setelah ${isScript ? "naskah" : "pertanyaan podcast"} disetujui Pembina & Ketua Broadcast`,
+          },
+        ],
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Gagal membuat project kanban dari naskah disetujui:", error);
+      return;
+    }
+
+    logAction(
+      "AUTO_CREATE_PROJECT",
+      "project",
+      inserted?.id,
+      `Project kanban dibuat dari naskah yang telah disetujui: ${prod.judul}`
+    );
+  };
+
   const handleApprove = async (actor: "pembina" | "ketua_broadcast") => {
-    const next = transitionDualGateApproval(
+    const userId = currentUser.id.length === 36 ? currentUser.id : null;
+    const transitioned = transitionDualGateApproval(
       item,
       actor,
       "approve",
       `Disetujui oleh ${currentUser.nama}`
     );
+    // Pakai ID user asli (bukan ID mock) agar nama penyetuju langsung tampil benar
+    const next: ProduksiVideo =
+      actor === "pembina"
+        ? { ...transitioned, approved_pembina_by: userId ?? transitioned.approved_pembina_by }
+        : { ...transitioned, approved_ketua_by: userId ?? transitioned.approved_ketua_by };
 
     setProduksiList((prev) =>
       prev.map((p) => (p.id === item.id ? next : p))
@@ -46,7 +139,6 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
         status: next.status,
         updated_at: new Date().toISOString(),
       };
-      const userId = currentUser.id.length === 36 ? currentUser.id : null;
       if (actor === "pembina") {
         updatePayload.approved_pembina_by = userId;
         updatePayload.approved_pembina_at = new Date().toISOString();
@@ -55,7 +147,16 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
         updatePayload.approved_ketua_at = new Date().toISOString();
       }
 
-      await supabase.from("produksi_video").update(updatePayload).eq("id", item.id);
+      const { error: updErr } = await supabase
+        .from("produksi_video")
+        .update(updatePayload)
+        .eq("id", item.id);
+
+      // Hanya naskah / pertanyaan yang SUDAH disetujui kedua gate yang masuk Project Kanban
+      if (!updErr && next.status === "approved") {
+        await createKanbanFromApproved(next);
+      }
+
       await refreshData();
     } catch (err) {
       console.error("Error updating produksi approval in Supabase:", err);
@@ -145,13 +246,46 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
 
       {/* Script preview snippet */}
       {(item.script_text || item.pertanyaan_podcast) && (
-        <div className="my-3 p-3 bg-surface-1 rounded-lg border border-studio-border-subtle text-xs text-studio-text-secondary line-clamp-3">
-          <span className="font-semibold text-white block mb-1">
-            {item.script_text ? "Naskah Script:" : "Pertanyaan Podcast:"}
-          </span>
-          <p className="whitespace-pre-line font-mono text-[11px]">
-            {item.script_text || item.pertanyaan_podcast}
-          </p>
+        <div className="my-3 p-3 bg-surface-1 rounded-lg border border-studio-border-subtle text-xs text-studio-text-secondary space-y-3">
+          {item.script_text && (
+            <div>
+              <span className="font-semibold text-white block mb-1">Naskah Script:</span>
+              <p
+                className={`whitespace-pre-line font-mono text-[11px] ${
+                  showDetail ? "max-h-72 overflow-y-auto pr-1" : "line-clamp-3"
+                }`}
+              >
+                {item.script_text}
+              </p>
+            </div>
+          )}
+
+          {questions.length > 0 && (
+            <div>
+              <span className="font-semibold text-white block mb-1">
+                Detail Pertanyaan Podcast ({questions.length} pertanyaan):
+              </span>
+              <ol className="list-decimal pl-5 space-y-1 font-mono text-[11px]">
+                {(showDetail ? questions : questions.slice(0, 3)).map((q, i) => (
+                  <li key={i} className="leading-relaxed">
+                    {q}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {((item.script_text && item.script_text.length > 160) || questions.length > 3) && (
+            <button
+              type="button"
+              onClick={() => setShowDetail((v) => !v)}
+              aria-label={showDetail ? "Ringkas detail naskah" : "Lihat detail lengkap naskah"}
+              className="flex items-center gap-1 text-[11px] font-mono text-spectrum-cyan hover:underline min-h-[32px]"
+            >
+              {showDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {showDetail ? "Ringkas" : "Lihat Detail Lengkap"}
+            </button>
+          )}
         </div>
       )}
 
@@ -183,7 +317,7 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
           {pembinaApproved ? (
             <div className="text-xs">
               <p className="font-semibold text-spectrum-jade flex items-center gap-1.5">
-                <span>✓ Disetujui: Bpk. Haryanto, S.Pd</span>
+                <span>✓ Disetujui: {pembinaApproverName}</span>
               </p>
               {item.catatan_pembina && (
                 <p className="text-[11px] text-studio-text-secondary mt-1 italic">
@@ -193,7 +327,7 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
             </div>
           ) : item.status === "rejected" && item.catatan_pembina ? (
             <div className="text-xs text-spectrum-tangerine">
-              <p className="font-bold">Ditolak oleh Pembina</p>
+              <p className="font-bold">Ditolak oleh {pembinaRejecterName}</p>
               <p className="text-[11px] mt-1">{item.catatan_pembina}</p>
             </div>
           ) : (
@@ -249,7 +383,7 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
           {ketuaApproved ? (
             <div className="text-xs">
               <p className="font-semibold text-spectrum-jade flex items-center gap-1.5">
-                <span>✓ Disetujui: Raditya Pratama</span>
+                <span>✓ Disetujui: {ketuaApproverName}</span>
               </p>
               {item.catatan_ketua && (
                 <p className="text-[11px] text-studio-text-secondary mt-1 italic">
@@ -259,7 +393,7 @@ export function DualGateBanner({ item, onUpdate }: DualGateBannerProps) {
             </div>
           ) : item.status === "rejected" && item.catatan_ketua ? (
             <div className="text-xs text-spectrum-tangerine">
-              <p className="font-bold">Ditolak oleh Ketua Broadcast</p>
+              <p className="font-bold">Ditolak oleh {ketuaRejecterName}</p>
               <p className="text-[11px] mt-1">{item.catatan_ketua}</p>
             </div>
           ) : (
