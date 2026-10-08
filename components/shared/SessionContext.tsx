@@ -13,6 +13,8 @@ import {
   ProjectKanban,
   AgendaFoto,
   InventarisItem,
+  InventarisPeminjaman,
+  INITIAL_INVENTARIS_PEMINJAMAN,
   NotulenItem,
   KeuanganPembinaItem,
   AbsensiRecord,
@@ -65,6 +67,9 @@ interface SessionContextType {
   inventarisList: InventarisItem[];
   setInventarisList: React.Dispatch<React.SetStateAction<InventarisItem[]>>;
 
+  inventarisPeminjamanList: InventarisPeminjaman[];
+  setInventarisPeminjamanList: React.Dispatch<React.SetStateAction<InventarisPeminjaman[]>>;
+
   notulenList: NotulenItem[];
   setNotulenList: React.Dispatch<React.SetStateAction<NotulenItem[]>>;
 
@@ -111,6 +116,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [projectList, setProjectList] = useState<ProjectKanban[]>([]);
   const [agendaFotoList, setAgendaFotoList] = useState<AgendaFoto[]>([]);
   const [inventarisList, setInventarisList] = useState<InventarisItem[]>([]);
+  const [inventarisPeminjamanList, setInventarisPeminjamanList] = useState<InventarisPeminjaman[]>([]);
   const [notulenList, setNotulenList] = useState<NotulenItem[]>([]);
   const [keuanganPembinaList, setKeuanganPembinaList] = useState<KeuanganPembinaItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
@@ -204,10 +210,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
       // 8. Inventaris
       const { data: inventarisData } = await supabase.from("inventaris").select("*");
-      if (inventarisData) {
+      if (inventarisData && inventarisData.length > 0) {
         setInventarisList(inventarisData as InventarisItem[]);
       } else {
         setInventarisList([]);
+      }
+
+      // 8b. Inventaris Peminjaman
+      const { data: peminjamanData } = await supabase
+        .from("inventaris_peminjaman")
+        .select("*")
+        .order("tgl_pinjam", { ascending: false });
+      if (peminjamanData && peminjamanData.length > 0) {
+        setInventarisPeminjamanList(peminjamanData as InventarisPeminjaman[]);
+      } else {
+        setInventarisPeminjamanList(INITIAL_INVENTARIS_PEMINJAMAN);
       }
 
       // 9. Notulen
@@ -375,6 +392,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           setProjectList([]);
           setAgendaFotoList([]);
           setInventarisList([]);
+          setInventarisPeminjamanList([]);
           setNotulenList([]);
           setKeuanganPembinaList([]);
           setPembinaList([]);
@@ -409,6 +427,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setProjectList([]);
     setAgendaFotoList([]);
     setInventarisList([]);
+    setInventarisPeminjamanList([]);
     setNotulenList([]);
     setKeuanganPembinaList([]);
     setPembinaList([]);
@@ -496,6 +515,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setAgendaFotoList,
         inventarisList,
         setInventarisList,
+        inventarisPeminjamanList,
+        setInventarisPeminjamanList,
         notulenList,
         setNotulenList,
         keuanganPembinaList,

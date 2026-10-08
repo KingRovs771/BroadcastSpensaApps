@@ -154,6 +154,32 @@ export interface InventarisItem {
   divisi: DivisiName;
   status: "tersedia" | "dipinjam";
   peminjam_nama?: string;
+  penanggung_jawab?: string;
+  tgl_peroleh?: string;
+  harga_peroleh?: number;
+  keterangan?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InventarisPeminjaman {
+  id: string;
+  inventaris_id: string;
+  anggota_id: string;
+  jumlah_pinjam: number;
+  tgl_pinjam: string;
+  tgl_kembali?: string | null;
+  kondisi_kembali?: "baik" | "rusak ringan" | "rusak berat" | "hilang" | null;
+  dicatat_oleh?: string | null;
+  catatan?: string | null;
+  created_at?: string;
+  // Helper fields for UI display
+  peminjam_nama?: string;
+  peminjam_jabatan?: string;
+  peminjam_kelas?: string;
+  dicatat_nama?: string;
+  barang_nama?: string;
+  kode_inventaris?: string;
 }
 
 export interface NotulenItem {
@@ -763,6 +789,39 @@ export const INITIAL_INVENTARIS: InventarisItem[] = [
     lokasi_simpan: "Studio Utama Lantai 2",
     divisi: "Broadcasting",
     status: "tersedia",
+  },
+];
+
+export const INITIAL_INVENTARIS_PEMINJAMAN: InventarisPeminjaman[] = [
+  {
+    id: "loan-01",
+    inventaris_id: "inv-02",
+    anggota_id: "usr-anggota",
+    jumlah_pinjam: 1,
+    tgl_pinjam: "2026-09-25",
+    tgl_kembali: null,
+    kondisi_kembali: null,
+    dicatat_oleh: "usr-sekretaris",
+    catatan: "Keperluan take audio liputan ekskul",
+    peminjam_nama: "Zidan Al-Ghifari",
+    peminjam_jabatan: "Anggota Utama",
+    peminjam_kelas: "8A",
+    dicatat_nama: "Shelvia Devinna (Sekretaris)",
+  },
+  {
+    id: "loan-02",
+    inventaris_id: "inv-01",
+    anggota_id: "usr-anggota-2",
+    jumlah_pinjam: 1,
+    tgl_pinjam: "2026-09-18",
+    tgl_kembali: "2026-09-20",
+    kondisi_kembali: "baik",
+    dicatat_oleh: "usr-sekretaris",
+    catatan: "Pra-lomba Ursulin Cup",
+    peminjam_nama: "Putri Ellenza Angelica Tan",
+    peminjam_jabatan: "Ketua Divisi Fotografer",
+    peminjam_kelas: "9B",
+    dicatat_nama: "Shelvia Devinna (Sekretaris)",
   },
 ];
 
