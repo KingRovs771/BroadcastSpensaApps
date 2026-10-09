@@ -26,6 +26,8 @@ import {
   Tag,
   Loader2,
   FileText,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -70,9 +72,66 @@ export default function InventarisPage() {
   const [jumlah, setJumlah] = useState(1);
   const [kondisi, setKondisi] = useState<InventarisItem["kondisi"]>("baik");
   const [lokasi, setLokasi] = useState("Studio A");
+  const [editingItem, setEditingItem] = useState<InventarisItem | null>(null);
+
+  const openCreateModal = () => {
+    setEditingItem(null);
+    setNamaBarang("");
+    setKondisi("baik");
+    setJumlah(1);
+    setIsNewModalOpen(true);
+  };
+
+  const openEditModal = (item: InventarisItem) => {
+    setEditingItem(item);
+    setNamaBarang(item.nama_barang);
+    setKategori(item.kategori);
+    setDivisi(item.divisi as DivisiName);
+    setKodeInventaris(item.kode_inventaris);
+    setJumlah(item.jumlah || 1);
+    setKondisi(item.kondisi);
+    setLokasi(item.lokasi_simpan || "");
+    setIsNewModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    setIsNewModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDelete = async (item: InventarisItem) => {
+    if (item.status === "dipinjam") {
+      alert("Aset sedang dipinjam. Proses pengembalian terlebih dahulu sebelum menghapus.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Hapus aset ${item.nama_barang} (${item.kode_inventaris})? Riwayat peminjamannya juga akan terhapus.`
+      )
+    )
+      return;
+    try {
+      const { error } = await supabase.from("inventaris").delete().eq("id", item.id);
+      if (error) {
+        alert(`Gagal menghapus aset: ${error.message}`);
+        return;
+      }
+      setInventarisList((prev) => prev.filter((i) => i.id !== item.id));
+      setInventarisPeminjamanList((prev) => prev.filter((l) => l.inventaris_id !== item.id));
+      if (selectedDetailItem?.id === item.id) setSelectedDetailItem(null);
+      logAction(
+        "DELETE_INVENTARIS",
+        "inventaris",
+        item.id,
+        `Hapus aset: ${item.nama_barang} (${item.kode_inventaris})`
+      );
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Gagal menghapus aset.");
+    }
+  };
 
   const isBroadcastingOrSekretarisOrAdmin =
-    (currentUser.role === "ketua_divisi" && currentUser.divisi === "Broadcasting") ||
+    (currentUser.divisi as string | undefined) === "Broadcasting" ||
     currentUser.role === "sekretaris" ||
     currentUser.role === "ketua_broadcast" ||
     currentUser.role === "pembina" ||
@@ -81,11 +140,11 @@ export default function InventarisPage() {
 
   // Auto-generate Kode Tagging BRC-* saat membuka modal atau saat divisi/kategori berubah
   useEffect(() => {
-    if (isNewModalOpen) {
+    if (isNewModalOpen && !editingItem) {
       const autoCode = generateAutoKodeInventaris(inventarisList, divisi, kategori);
       setKodeInventaris(autoCode);
     }
-  }, [isNewModalOpen, divisi, kategori, inventarisList]);
+  }, [isNewModalOpen, editingItem, divisi, kategori, inventarisList]);
 
   // Set default borrower saat anggotaList tersedia
   useEffect(() => {
@@ -130,9 +189,46 @@ export default function InventarisPage() {
     );
   });
 
+  const handleUpdate = async () => {
+    if (!editingItem) return;
+    const payload = {
+      nama_barang: namaBarang.trim(),
+      kategori: kategori.trim(),
+      jumlah: Number(jumlah) || 1,
+      kondisi,
+      lokasi_simpan: lokasi.trim(),
+      divisi,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("inventaris").update(payload).eq("id", editingItem.id);
+    if (error) {
+      alert(`Gagal memperbarui aset: ${error.message}`);
+      return;
+    }
+    setInventarisList((prev) =>
+      prev.map((i) => (i.id === editingItem.id ? { ...i, ...payload } : i))
+    );
+    logAction(
+      "UPDATE_INVENTARIS",
+      "inventaris",
+      editingItem.id,
+      `Perbarui aset: ${payload.nama_barang} (${editingItem.kode_inventaris})`
+    );
+    closeFormModal();
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if (editingItem) {
+      try {
+        await handleUpdate();
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     // Pastikan kode selalu dihitung terstandarisasi
     const finalKode =
@@ -425,7 +521,7 @@ export default function InventarisPage() {
         <div className="flex items-center gap-2.5">
           {isBroadcastingOrSekretarisOrAdmin && (
             <button
-              onClick={() => setIsNewModalOpen(true)}
+              onClick={openCreateModal}
               aria-label="Registrasi Aset Baru"
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-spectrum-cobalt hover:bg-sky-400 text-ink text-xs font-bold transition-all shadow-cyan min-h-[44px]"
             >
@@ -647,6 +743,29 @@ export default function InventarisPage() {
                         </button>
                       )}
                     </div>
+
+                    {isBroadcastingOrSekretarisOrAdmin && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(item)}
+                          aria-label={`Edit aset ${item.nama_barang}`}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-surface-2 hover:bg-surface-3 text-studio-text-secondary hover:text-white border border-studio-border-subtle min-h-[48px] transition-all"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item)}
+                          aria-label={`Hapus aset ${item.nama_barang}`}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-spectrum-crimson/10 hover:bg-spectrum-crimson/20 text-spectrum-crimson border border-spectrum-crimson/30 min-h-[48px] transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -786,7 +905,7 @@ export default function InventarisPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              onClick={() => setIsNewModalOpen(false)}
+              onClick={closeFormModal}
               className="fixed inset-0 bg-cosmic/80 backdrop-blur-sm"
             />
 
@@ -800,14 +919,14 @@ export default function InventarisPage() {
               <div className="flex items-center justify-between pb-4 border-b border-studio-border-subtle">
                 <div>
                   <h3 id="inv-modal-title" className="text-base font-bold text-white">
-                    Registrasi Aset Studio Baru
+                    {editingItem ? "Edit Aset Studio" : "Registrasi Aset Studio Baru"}
                   </h3>
                   <p className="text-[11px] font-mono text-studio-text-muted mt-0.5">
                     Penomoran tagging terstandarisasi otomatis oleh sistem
                   </p>
                 </div>
                 <button
-                  onClick={() => setIsNewModalOpen(false)}
+                  onClick={closeFormModal}
                   disabled={isSubmitting}
                   aria-label="Tutup modal"
                   className="p-1.5 rounded-lg text-studio-text-secondary hover:text-white hover:bg-surface-3 transition-colors"
@@ -925,10 +1044,28 @@ export default function InventarisPage() {
                   </div>
                 </div>
 
+                {/* Kondisi Fisik */}
+                <div>
+                  <label htmlFor="inv-kondisi" className="block text-xs font-semibold text-white mb-1">
+                    Kondisi Fisik
+                  </label>
+                  <select
+                    id="inv-kondisi"
+                    value={kondisi}
+                    onChange={(e) => setKondisi(e.target.value as InventarisItem["kondisi"])}
+                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-studio-border-subtle text-xs text-white focus:border-spectrum-cyan focus:outline-none min-h-[44px]"
+                  >
+                    <option value="baik">Baik</option>
+                    <option value="rusak ringan">Rusak Ringan</option>
+                    <option value="rusak berat">Rusak Berat</option>
+                    <option value="hilang">Hilang</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-studio-border-subtle">
                   <button
                     type="button"
-                    onClick={() => setIsNewModalOpen(false)}
+                    onClick={closeFormModal}
                     disabled={isSubmitting}
                     className="px-4 py-2 text-xs font-semibold text-studio-text-secondary hover:text-white rounded-lg transition-colors min-h-[44px]"
                   >
@@ -947,7 +1084,7 @@ export default function InventarisPage() {
                     ) : (
                       <>
                         <Plus className="w-4 h-4" />
-                        <span>Simpan Aset Baru</span>
+                        <span>{editingItem ? "Simpan Perubahan" : "Simpan Aset Baru"}</span>
                       </>
                     )}
                   </button>
