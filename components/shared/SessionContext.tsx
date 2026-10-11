@@ -170,7 +170,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const { data: kasSettingsData } = await supabase
         .from("kas_settings")
         .select("*")
-        .order("effective_from", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1);
       if (kasSettingsData && kasSettingsData.length > 0) {
         setKasSettings(kasSettingsData[0] as KasSettings);

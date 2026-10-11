@@ -26,8 +26,10 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
   const {
     currentUser,
     kasSettings,
+    setKasSettings,
     anggotaList,
     kasPembayaranList,
+    setKasPembayaranList,
     refreshData,
     logAction,
     supabase,
@@ -75,19 +77,29 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
       setStepTitle("Menyimpan Parameter Aturan Kas...");
       setStepSubtitle("Menulis konfigurasi tarif baru ke basis data studio...");
 
+      const actorId =
+        currentUser.id && currentUser.id.length === 36 ? currentUser.id : null;
+
       // 1. Simpan ke kas_settings
       const { error: settingsError } = await supabase.from("kas_settings").insert({
         nominal: Number(nominal),
         periode_type: periodeType,
         effective_from: effectiveFrom,
-        diatur_oleh: currentUser.id,
+        diatur_oleh: actorId,
       });
 
       if (settingsError) {
         throw new Error(`Gagal menyimpan aturan kas: ${settingsError.message}`);
       }
 
-      await new Promise((res) => setTimeout(res, 500));
+      // Update state instan di context
+      setKasSettings({
+        nominal: Number(nominal),
+        periode_type: periodeType,
+        effective_from: effectiveFrom,
+      });
+
+      await new Promise((res) => setTimeout(res, 400));
 
       // 2. Identifikasi Anggota Tetap Aktif
       setCurrentStep(2);
@@ -107,9 +119,9 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         `Ditemukan ${membersToProcess.length} Anggota Tetap aktif untuk sinkronisasi.`
       );
 
-      await new Promise((res) => setTimeout(res, 600));
+      await new Promise((res) => setTimeout(res, 500));
 
-      // 3. Menyesuaikan Periode & Tarif berdasarkan Tanggal Efektif
+      // 3. Menyesuaikan Periode & Tarif berdasarkan Tanggal Efektif & Bulan Berjalan
       setCurrentStep(3);
       setProgressPercent(75);
       setStepTitle("Menerapkan Aturan Sesuai Tanggal Efektif...");
@@ -117,20 +129,29 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         `Menyesuaikan nominal ${formatIDR(nominal)} (${periodeType}) mulai ${effectiveFrom}...`
       );
 
-      // A. Bersihkan tagihan belum lunas sebelum tanggal aturan ditentukan (misal: September)
+      const today = new Date();
+      const curYear = today.getFullYear();
+      const curMonth = today.getMonth() + 1;
+      const curTodayDate = today.getDate();
+      const lastDayOfCurMonth = new Date(curYear, curMonth, 0).getDate();
+      const startOfCurMonth = `${curYear}-${String(curMonth).padStart(2, "0")}-01`;
+      const endOfCurMonth = `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`;
+
+      const monthNames = [
+        "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+        "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+      ];
+      const curMonthStr = monthNames[curMonth - 1];
+
+      // A. Bersihkan tagihan belum lunas sebelum bulan efektif
+      const effMonthStr = effectiveFrom.slice(0, 7);
       await supabase
         .from("kas_pembayaran")
         .delete()
-        .lt("periode_start", effectiveFrom)
+        .lt("periode_start", `${effMonthStr}-01`)
         .eq("status", "belum");
 
-      // B. Bersihkan tagihan belum lunas untuk bulan-bulan mendatang (2 bulan ke depan: Nov, Des, Jan, dll)
-      const effDate = new Date(effectiveFrom);
-      const y = effDate.getFullYear();
-      const m = effDate.getMonth() + 1;
-      const lastDayOfCurMonth = new Date(y, m, 0).getDate();
-      const endOfCurMonth = `${y}-${String(m).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`;
-
+      // B. Bersihkan tagihan belum lunas untuk bulan mendatang
       await supabase
         .from("kas_pembayaran")
         .delete()
@@ -141,7 +162,7 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
       const { data: curUnpaid } = await supabase
         .from("kas_pembayaran")
         .select("id, periode_label")
-        .gte("periode_start", effectiveFrom)
+        .gte("periode_start", startOfCurMonth)
         .lte("periode_start", endOfCurMonth)
         .eq("status", "belum");
 
@@ -170,28 +191,7 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         }
       }
 
-      // D. Generate HANYA periode aktif sampai hari ini / bulan berjalan ("mengikuti hari ini", TIDAK ADA 2 bulan ke depan)
-      const today = new Date();
-      const todayDate = today.getDate(); // 1 - 31
-      const isCurrentMonth = today.getFullYear() === y && today.getMonth() + 1 === m;
-
-      const monthNames = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "Mei",
-        "Jun",
-        "Jul",
-        "Agu",
-        "Sep",
-        "Okt",
-        "Nov",
-        "Des",
-      ];
-      const mStr = monthNames[m - 1];
-      const lastDay = new Date(y, m, 0).getDate();
-
+      // D. Generate periode aktif untuk bulan berjalan sesuai periodeType
       const generatedPeriods: Array<{
         start: string;
         end: string;
@@ -199,53 +199,50 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
       }> = [];
 
       if (periodeType === "bulanan") {
-        // Hanya 1 periode bulan berjalan
         generatedPeriods.push({
-          start: `${y}-${String(m).padStart(2, "0")}-01`,
-          end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-          label: `Bulan ${mStr} ${y}`,
+          start: `${curYear}-${String(curMonth).padStart(2, "0")}-01`,
+          end: `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`,
+          label: `Bulan ${curMonthStr} ${curYear}`,
         });
       } else if (periodeType === "dwimingguan") {
-        // D1: 01 - 14
         generatedPeriods.push({
-          start: `${y}-${String(m).padStart(2, "0")}-01`,
-          end: `${y}-${String(m).padStart(2, "0")}-14`,
-          label: `D1 ${mStr} ${y}`,
+          start: `${curYear}-${String(curMonth).padStart(2, "0")}-01`,
+          end: `${curYear}-${String(curMonth).padStart(2, "0")}-14`,
+          label: `D1 ${curMonthStr} ${curYear}`,
         });
-        // D2: 15 - lastDay (hanya jika sudah tanggal 15 ke atas atau lewat)
-        if (!isCurrentMonth || todayDate >= 15) {
+        if (curTodayDate >= 15) {
           generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-15`,
-            end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-            label: `D2 ${mStr} ${y}`,
+            start: `${curYear}-${String(curMonth).padStart(2, "0")}-15`,
+            end: `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`,
+            label: `D2 ${curMonthStr} ${curYear}`,
           });
         }
       } else {
-        // mingguan: W1, dan W2-W4 sesuai tanggal berjalan ("mengikuti hari ini")
+        // mingguan
         generatedPeriods.push({
-          start: `${y}-${String(m).padStart(2, "0")}-01`,
-          end: `${y}-${String(m).padStart(2, "0")}-07`,
-          label: `W1 ${mStr}`,
+          start: `${curYear}-${String(curMonth).padStart(2, "0")}-01`,
+          end: `${curYear}-${String(curMonth).padStart(2, "0")}-07`,
+          label: `W1 ${curMonthStr}`,
         });
-        if (!isCurrentMonth || todayDate >= 8) {
+        if (curTodayDate >= 8) {
           generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-08`,
-            end: `${y}-${String(m).padStart(2, "0")}-14`,
-            label: `W2 ${mStr}`,
+            start: `${curYear}-${String(curMonth).padStart(2, "0")}-08`,
+            end: `${curYear}-${String(curMonth).padStart(2, "0")}-14`,
+            label: `W2 ${curMonthStr}`,
           });
         }
-        if (!isCurrentMonth || todayDate >= 15) {
+        if (curTodayDate >= 15) {
           generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-15`,
-            end: `${y}-${String(m).padStart(2, "0")}-21`,
-            label: `W3 ${mStr}`,
+            start: `${curYear}-${String(curMonth).padStart(2, "0")}-15`,
+            end: `${curYear}-${String(curMonth).padStart(2, "0")}-21`,
+            label: `W3 ${curMonthStr}`,
           });
         }
-        if (!isCurrentMonth || todayDate >= 22) {
+        if (curTodayDate >= 22) {
           generatedPeriods.push({
-            start: `${y}-${String(m).padStart(2, "0")}-22`,
-            end: `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-            label: `W4 ${mStr}`,
+            start: `${curYear}-${String(curMonth).padStart(2, "0")}-22`,
+            end: `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`,
+            label: `W4 ${curMonthStr}`,
           });
         }
       }
@@ -274,7 +271,7 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         }
       }
 
-      await new Promise((res) => setTimeout(res, 600));
+      await new Promise((res) => setTimeout(res, 500));
 
       // 4. Selesai
       setCurrentStep(4);

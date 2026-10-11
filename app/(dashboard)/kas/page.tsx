@@ -57,15 +57,16 @@ export default function KasPage() {
   const todayStr = today.toISOString().split("T")[0];
   const currentYearMonth = todayStr.slice(0, 7); // e.g. "2026-10"
   const effectiveDate = kasSettings.effective_from || "2026-10-01";
+  const effectiveMonthStr = effectiveDate.slice(0, 7);
 
   // Saring record pembayaran kas agar:
   // 1. Tidak menampilkan bulan sebelum pelaksanaan (misal: September jika pelaksanaan Oktober)
   // 2. Tidak menampilkan 2 bulan ke depan (hanya mengikuti hari ini / bulan berjalan)
   const activeKasPembayaranList = kasPembayaranList.filter((k) => {
-    // Jangan tampilkan jika sebelum tanggal aturan ditentukan
-    if (k.periode_start < effectiveDate) return false;
-    // Jangan tampilkan jika bulan berada di masa depan (2 bulan ke depan: Nov, Des, Jan...)
+    // Jangan tampilkan jika sebelum bulan aturan ditentukan
     const itemYearMonth = k.periode_start.slice(0, 7);
+    if (itemYearMonth < effectiveMonthStr) return false;
+    // Jangan tampilkan jika bulan berada di masa depan (2 bulan ke depan: Nov, Des, Jan...)
     if (itemYearMonth > currentYearMonth) return false;
     return true;
   });
@@ -231,6 +232,39 @@ export default function KasPage() {
     }
 
     try {
+      // Bersihkan record unpaid di bulan berjalan jika labelnya tidak sesuai format baru
+      const startOfMonth = `${year}-${String(month).padStart(2, "0")}-01`;
+      const endOfMonth = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const { data: curUnpaid } = await supabase
+        .from("kas_pembayaran")
+        .select("id, periode_label")
+        .gte("periode_start", startOfMonth)
+        .lte("periode_start", endOfMonth)
+        .eq("status", "belum");
+
+      if (curUnpaid && curUnpaid.length > 0) {
+        const idsToRemove = curUnpaid
+          .filter((item: any) => {
+            const isBulanan = item.periode_label.toLowerCase().startsWith("bulan");
+            const isDwimingguan = item.periode_label.toUpperCase().startsWith("D");
+            const isMingguan = item.periode_label.toUpperCase().startsWith("W");
+            if (periodeType === "bulanan") return !isBulanan;
+            if (periodeType === "dwimingguan") return !isDwimingguan;
+            if (periodeType === "mingguan") return !isMingguan;
+            return false;
+          })
+          .map((i: any) => i.id);
+
+        if (idsToRemove.length > 0) {
+          for (let i = 0; i < idsToRemove.length; i += 100) {
+            await supabase
+              .from("kas_pembayaran")
+              .delete()
+              .in("id", idsToRemove.slice(i, i + 100));
+          }
+        }
+      }
+
       const { error } = await supabase
         .from("kas_pembayaran")
         .upsert(inserts, { onConflict: "anggota_id,periode_start" });

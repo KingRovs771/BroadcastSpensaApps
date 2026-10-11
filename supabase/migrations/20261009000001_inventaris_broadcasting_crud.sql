@@ -12,3 +12,18 @@ WITH CHECK (
     public.get_current_role() IN ('ketua_broadcast', 'sekretaris', 'pembina', 'administrator')
     OR public.get_current_divisi() = 'Broadcasting'
 );
+
+-- Sirkulasi peminjaman: hanya divisi Broadcasting & pengurus yang boleh mencatat/mengubah
+DROP POLICY IF EXISTS "Inventaris peminjaman editable by all" ON public.inventaris_peminjaman;
+DROP POLICY IF EXISTS "Inventaris peminjaman editable by Broadcasting division" ON public.inventaris_peminjaman;
+
+CREATE POLICY "Inventaris peminjaman editable by Broadcasting division"
+ON public.inventaris_peminjaman FOR ALL TO authenticated
+USING (
+    public.get_current_role() IN ('ketua_broadcast', 'sekretaris', 'pembina', 'administrator')
+    OR public.get_current_divisi() = 'Broadcasting'
+)
+WITH CHECK (
+    public.get_current_role() IN ('ketua_broadcast', 'sekretaris', 'pembina', 'administrator')
+    OR public.get_current_divisi() = 'Broadcasting'
+);
