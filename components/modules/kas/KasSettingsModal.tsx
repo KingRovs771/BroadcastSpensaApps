@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { kasSettingsSchema } from "@/lib/validations/kas";
 import { formatIDR } from "@/lib/utils/currency";
+import { generateKasPeriodsBetween } from "@/lib/utils/kas-calc";
 import {
   X,
   Settings2,
@@ -158,11 +159,12 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         .gt("periode_start", endOfCurMonth)
         .eq("status", "belum");
 
-      // C. Bersihkan tagihan belum lunas di bulan ini yang berformat lama/berbeda (agar W1..W4 dan D1..D2 tidak bercampur)
+      // C. Bersihkan tagihan belum lunas dari bulan efektif hingga bulan ini yang berformat lama/berbeda
+      const startOfEffMonth = `${effMonthStr}-01`;
       const { data: curUnpaid } = await supabase
         .from("kas_pembayaran")
         .select("id, periode_label")
-        .gte("periode_start", startOfCurMonth)
+        .gte("periode_start", startOfEffMonth)
         .lte("periode_start", endOfCurMonth)
         .eq("status", "belum");
 
@@ -191,73 +193,28 @@ export function KasSettingsModal({ isOpen, onClose }: KasSettingsModalProps) {
         }
       }
 
-      // D. Generate periode aktif untuk bulan berjalan sesuai periodeType
-      const generatedPeriods: Array<{
-        start: string;
-        end: string;
-        label: string;
-      }> = [];
+      // D. Generate seluruh periode aktif dari tanggal mulai kas anggota hingga hari ini
+      const generatedPeriods = generateKasPeriodsBetween(effectiveFrom, periodeType, today);
 
-      if (periodeType === "bulanan") {
-        generatedPeriods.push({
-          start: `${curYear}-${String(curMonth).padStart(2, "0")}-01`,
-          end: `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`,
-          label: `Bulan ${curMonthStr} ${curYear}`,
-        });
-      } else if (periodeType === "dwimingguan") {
-        generatedPeriods.push({
-          start: `${curYear}-${String(curMonth).padStart(2, "0")}-01`,
-          end: `${curYear}-${String(curMonth).padStart(2, "0")}-14`,
-          label: `D1 ${curMonthStr} ${curYear}`,
-        });
-        if (curTodayDate >= 15) {
-          generatedPeriods.push({
-            start: `${curYear}-${String(curMonth).padStart(2, "0")}-15`,
-            end: `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`,
-            label: `D2 ${curMonthStr} ${curYear}`,
-          });
-        }
-      } else {
-        // mingguan
-        generatedPeriods.push({
-          start: `${curYear}-${String(curMonth).padStart(2, "0")}-01`,
-          end: `${curYear}-${String(curMonth).padStart(2, "0")}-07`,
-          label: `W1 ${curMonthStr}`,
-        });
-        if (curTodayDate >= 8) {
-          generatedPeriods.push({
-            start: `${curYear}-${String(curMonth).padStart(2, "0")}-08`,
-            end: `${curYear}-${String(curMonth).padStart(2, "0")}-14`,
-            label: `W2 ${curMonthStr}`,
-          });
-        }
-        if (curTodayDate >= 15) {
-          generatedPeriods.push({
-            start: `${curYear}-${String(curMonth).padStart(2, "0")}-15`,
-            end: `${curYear}-${String(curMonth).padStart(2, "0")}-21`,
-            label: `W3 ${curMonthStr}`,
-          });
-        }
-        if (curTodayDate >= 22) {
-          generatedPeriods.push({
-            start: `${curYear}-${String(curMonth).padStart(2, "0")}-22`,
-            end: `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`,
-            label: `W4 ${curMonthStr}`,
-          });
-        }
-      }
+      // Pertahankan status yang sudah lunas jika ada
+      const existingLunasKeys = new Set(
+        kasPembayaranList
+          .filter((k) => k.status === "lunas")
+          .map((k) => `${k.anggota_id}_${k.periode_start}`)
+      );
 
       // Masukkan periode baru bagi anggota tetap
       const inserts: any[] = [];
       for (const mem of membersToProcess) {
         for (const p of generatedPeriods) {
+          const isAlreadyLunas = existingLunasKeys.has(`${mem.id}_${p.start}`);
           inserts.push({
             anggota_id: mem.id,
             periode_start: p.start,
             periode_end: p.end,
             periode_label: p.label,
             nominal: Number(nominal),
-            status: "belum",
+            status: isAlreadyLunas ? "lunas" : "belum",
           });
         }
       }

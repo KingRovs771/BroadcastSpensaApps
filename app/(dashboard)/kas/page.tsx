@@ -4,7 +4,11 @@ import React, { useState } from "react";
 import { useSession } from "@/components/shared/SessionContext";
 import { TunggakanDrawer } from "@/components/modules/kas/TunggakanDrawer";
 import { KasSettingsModal } from "@/components/modules/kas/KasSettingsModal";
-import { calculateKasSummary, getAnggotaTunggakan } from "@/lib/utils/kas-calc";
+import {
+  calculateKasSummary,
+  getAnggotaTunggakan,
+  generateKasPeriodsBetween,
+} from "@/lib/utils/kas-calc";
 import { formatIDR } from "@/lib/utils/currency";
 import { AnggotaRecord } from "@/lib/mock/store";
 import {
@@ -155,59 +159,11 @@ export default function KasPage() {
 
     setIsGeneratingPeriods(true);
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
-    ];
-    const monthStr = monthNames[month - 1];
-    const lastDay = new Date(year, month, 0).getDate();
+    const effectiveFrom = kasSettings.effective_from || "2026-10-01";
     const nominal = kasSettings.nominal || 2000;
     const periodeType = kasSettings.periode_type || "mingguan";
 
-    let periodsToInsert: Array<{ start: string; end: string; label: string }> = [];
-
-    const todayDate = now.getDate();
-
-    if (periodeType === "bulanan") {
-      periodsToInsert = [
-        {
-          start: `${year}-${String(month).padStart(2, "0")}-01`,
-          end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-          label: `Bulan ${monthStr} ${year}`,
-        },
-      ];
-    } else if (periodeType === "dwimingguan") {
-      periodsToInsert = [
-        {
-          start: `${year}-${String(month).padStart(2, "0")}-01`,
-          end: `${year}-${String(month).padStart(2, "0")}-14`,
-          label: `D1 ${monthStr} ${year}`,
-        },
-      ];
-      if (todayDate >= 15) {
-        periodsToInsert.push({
-          start: `${year}-${String(month).padStart(2, "0")}-15`,
-          end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-          label: `D2 ${monthStr} ${year}`,
-        });
-      }
-    } else {
-      // mingguan: hanya generate minggu yang sudah masuk sampai hari ini
-      periodsToInsert = [
-        { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-07`, label: `W1 ${monthStr}` },
-      ];
-      if (todayDate >= 8) {
-        periodsToInsert.push({ start: `${year}-${String(month).padStart(2, "0")}-08`, end: `${year}-${String(month).padStart(2, "0")}-14`, label: `W2 ${monthStr}` });
-      }
-      if (todayDate >= 15) {
-        periodsToInsert.push({ start: `${year}-${String(month).padStart(2, "0")}-15`, end: `${year}-${String(month).padStart(2, "0")}-21`, label: `W3 ${monthStr}` });
-      }
-      if (todayDate >= 22) {
-        periodsToInsert.push({ start: `${year}-${String(month).padStart(2, "0")}-22`, end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`, label: `W4 ${monthStr}` });
-      }
-    }
+    const periodsToInsert = generateKasPeriodsBetween(effectiveFrom, periodeType, now);
 
     const activeTetapMembers = anggotaList.filter((a) => a.tipe === "tetap" && a.status === "aktif");
     const activeMembers = activeTetapMembers.length > 0 ? activeTetapMembers : anggotaList.filter((a) => a.status === "aktif");
@@ -217,29 +173,41 @@ export default function KasPage() {
       return;
     }
 
+    const existingLunasKeys = new Set(
+      kasPembayaranList
+        .filter((k) => k.status === "lunas")
+        .map((k) => `${k.anggota_id}_${k.periode_start}`)
+    );
+
     const inserts: any[] = [];
     for (const mem of activeMembers) {
       for (const w of periodsToInsert) {
+        const isAlreadyLunas = existingLunasKeys.has(`${mem.id}_${w.start}`);
         inserts.push({
           anggota_id: mem.id,
           periode_start: w.start,
           periode_end: w.end,
           periode_label: w.label,
           nominal,
-          status: "belum",
+          status: isAlreadyLunas ? "lunas" : "belum",
         });
       }
     }
 
     try {
-      // Bersihkan record unpaid di bulan berjalan jika labelnya tidak sesuai format baru
-      const startOfMonth = `${year}-${String(month).padStart(2, "0")}-01`;
-      const endOfMonth = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const effMonthStr = effectiveFrom.slice(0, 7);
+      const startOfEffMonth = `${effMonthStr}-01`;
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth() + 1;
+      const lastDayOfCurMonth = new Date(curYear, curMonth, 0).getDate();
+      const endOfCurMonth = `${curYear}-${String(curMonth).padStart(2, "0")}-${String(lastDayOfCurMonth).padStart(2, "0")}`;
+
+      // Bersihkan record unpaid di rentang tanggal aturan yang labelnya tidak sesuai format baru
       const { data: curUnpaid } = await supabase
         .from("kas_pembayaran")
         .select("id, periode_label")
-        .gte("periode_start", startOfMonth)
-        .lte("periode_start", endOfMonth)
+        .gte("periode_start", startOfEffMonth)
+        .lte("periode_start", endOfCurMonth)
         .eq("status", "belum");
 
       if (curUnpaid && curUnpaid.length > 0) {
@@ -265,22 +233,21 @@ export default function KasPage() {
         }
       }
 
-      const { error } = await supabase
-        .from("kas_pembayaran")
-        .upsert(inserts, { onConflict: "anggota_id,periode_start" });
-
-      if (error) {
-        console.error("Error creating kas periods:", error);
-        alert(`Gagal membuat periode kas: ${error.message}`);
-        setIsGeneratingPeriods(false);
-        return;
+      if (inserts.length > 0) {
+        for (let i = 0; i < inserts.length; i += 100) {
+          const chunk = inserts.slice(i, i + 100);
+          const { error } = await supabase
+            .from("kas_pembayaran")
+            .upsert(chunk, { onConflict: "anggota_id,periode_start" });
+          if (error) throw error;
+        }
       }
 
       await refreshData();
       logAction(
         "INIT_KAS_PERIODS",
         "kas_pembayaran",
-        `Inisialisasi ${periodsToInsert.length} periode kas (${periodeType}) ${monthStr} ${year} untuk ${activeMembers.length} Anggota Tetap`
+        `Inisialisasi ${periodsToInsert.length} periode kas (${periodeType}) mulai ${effectiveFrom} untuk ${activeMembers.length} Anggota Tetap`
       );
     } catch (err: any) {
       alert(`Terjadi kesalahan: ${err.message || err}`);
